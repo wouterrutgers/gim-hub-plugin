@@ -22,6 +22,14 @@ public interface GroupIronmenTrackerConfig extends Config {
     )
     String connectionSection = "ConnectionSection";
 
+    @ConfigSection(
+            name = "Debug",
+            description = "Debug / developer options",
+            position = 2,
+            closedByDefault = true
+    )
+        String DEBUG_SECTION = "DebugSection";
+
     @ConfigItem(
             keyName = "groupName",
             name = "Group Name (on the website)",
@@ -52,4 +60,12 @@ public interface GroupIronmenTrackerConfig extends Config {
     default String baseUrlOverride() {
         return "";
     }
+
+    @ConfigItem(
+            keyName = "httpDebugLogging",
+            name = "Enable HTTP debug logging",
+            description = "Logs full HTTP requests and responses (including headers and bodies). Contains sensitive data; disable for normal use.",
+            section = DEBUG_SECTION
+    )
+    default boolean httpDebugLogging() { return false; }
 }

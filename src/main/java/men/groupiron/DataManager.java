@@ -26,7 +26,7 @@ public class DataManager {
     @Inject
     private OkHttpClient okHttpClient;
     @Inject
-    private CollectionLogManager collectionLogManager;
+    private PlayerDataService playerDataService;
     private static final String PUBLIC_BASE_URL = "https://groupiron.men";
     private static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
     private static final String USER_AGENT = "GroupIronmenTracker/1.5.3 " + "RuneLite/" + RuneLiteProperties.getVersion();
@@ -67,7 +67,7 @@ public class DataManager {
         String playerName = client.getLocalPlayer().getName();
         String groupToken = config.authorizationToken().trim();
 
-        if (groupToken.length() > 0) {
+        if (!groupToken.isEmpty()) {
             // NOTE: We do this check so characters who are not authorized won't waste time serializing and sending
             // their data. It is OK if the user switches characters or is removed from the group since the update call
             // below will return a 401 where we set isMemberOfGroup = false again.
@@ -75,6 +75,9 @@ public class DataManager {
                 boolean isMember = checkIfPlayerIsInGroup(groupToken, playerName);
 
                 if (!isMember) {
+                    if (config.httpDebugLogging()) {
+                        log.info("Skip POST: not a member (401/forbidden). Backing off.");
+                    }
                     // NOTE: We don't really need to check this everytime I don't think.
                     // Waiting for a game state event is not what we really want either
                     // since membership can change at anytime from the website.
@@ -85,7 +88,12 @@ public class DataManager {
             }
 
             String url = getUpdateGroupMemberUrl();
-            if (url == null) return;
+            if (url == null) {
+                if (config.httpDebugLogging()) {
+                    log.info("Skip POST: URL is null (check base URL and group name).");
+                }
+                return;
+            }
 
             Map<String, Object> updates = new HashMap<>();
             updates.put("name", playerName);
@@ -102,13 +110,12 @@ public class DataManager {
             deposited.consumeState(updates);
             seedVault.consumeState(updates);
             achievementDiary.consumeState(updates);
-            collectionLogManager.consumeCollections(updates);
-            collectionLogManager.consumeNewItems(updates);
+            playerDataService.writeClogItems(updates);
 
             if (updates.size() > 1) {
                 try {
-                    RequestBody body = RequestBody.create(JSON, gson.toJson(updates));
-                    // log.info("{}", gson.toJson(updates));
+                    String requestJson = gson.toJson(updates);
+                    RequestBody body = RequestBody.create(JSON, requestJson);
                     Request request = new Request.Builder()
                             .url(url)
                             .header("Authorization", groupToken)
@@ -118,22 +125,31 @@ public class DataManager {
                     Call call = okHttpClient.newCall(request);
 
                     try (Response response = call.execute()) {
+                        if (config.httpDebugLogging()) {
+                            String respText = readBodySafe(response);
+                            log.info("POST {}\nreq: {}\nresp({}): {}", url, truncate(requestJson, 2000), response.code(), truncate(respText, 2000));
+                        }
                         if (!response.isSuccessful()) {
-                            // log.error(response.body().string());
                             skipNextNAttempts = 10;
                             if (response.code() == 401) {
-                                // log.error("User not authorized to submit player data with current settings.");
                                 isMemberInGroup = false;
                             }
 
                             restoreStateIfNothingUpdated();
+                        } else {
+                            playerDataService.clearClogItems();
                         }
                     }
-                } catch (Exception _error) {
-                    // log.error(_error.toString());
+                } catch (Exception ex) {
+                    if (config.httpDebugLogging()) {
+                        log.warn("POST {} failed: {}", url, ex.toString());
+                    }
                     skipNextNAttempts = 10;
                     restoreStateIfNothingUpdated();
                 }
+            }
+            else if (config.httpDebugLogging()) {
+                log.info("Skip POST: no changes to send (fields={})", updates.size());
             }
         }
     }
@@ -151,9 +167,15 @@ public class DataManager {
         Call call = okHttpClient.newCall(request);
 
         try (Response response = call.execute()) {
-            // log.error(response.body().string());
+            if (config.httpDebugLogging()) {
+                String respText = readBodySafe(response);
+                log.info("GET {} -> {}\nresp: {}", url, response.code(), truncate(respText, 2000));
+            }
             return response.isSuccessful();
-        } catch (Exception _error) {
+        } catch (Exception ex) {
+            if (config.httpDebugLogging()) {
+                log.warn("GET {} failed: {}", url, ex.toString());
+            }
             return false;
         }
     }
@@ -173,19 +195,19 @@ public class DataManager {
         deposited.restoreState();
         seedVault.restoreState();
         achievementDiary.restoreState();
-        // collectionLogManager.restoreCollections();
-        // collectionLogManager.restoreNewCollections();
     }
 
     private String baseUrl() {
         String baseUrlOverride = config.baseUrlOverride().trim();
-        if (baseUrlOverride.length() > 0) return baseUrlOverride;
+        if (!baseUrlOverride.isEmpty()) {
+            return baseUrlOverride;
+        }
         return PUBLIC_BASE_URL;
     }
 
     private String groupName() {
         String groupName = config.groupName().trim();
-        if (groupName.length() == 0) {
+        if (groupName.isEmpty()) {
             return null;
         }
 
@@ -224,5 +246,20 @@ public class DataManager {
         }
 
         return false;
+    }
+
+    private static String truncate(String s, int max) {
+        if (s == null) return "";
+        if (s.length() <= max) return s;
+        return s.substring(0, max) + "...(" + s.length() + " chars)";
+    }
+
+    private static String readBodySafe(Response response) {
+        try {
+            ResponseBody rb = response.body();
+            return rb != null ? rb.string() : "<no body>";
+        } catch (Exception e) {
+            return "<unavailable: " + e.getMessage() + ">";
+        }
     }
 }
