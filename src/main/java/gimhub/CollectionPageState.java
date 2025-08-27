@@ -1,4 +1,4 @@
-package men.groupiron;
+package gimhub;
 
 import java.util.HashMap;
 import java.util.List;

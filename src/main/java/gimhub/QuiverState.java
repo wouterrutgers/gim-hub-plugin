@@ -1,4 +1,4 @@
-package men.groupiron;
+package gimhub;
 
 import net.runelite.api.Client;
 import net.runelite.api.VarPlayer;

@@ -1,12 +1,12 @@
-package men.groupiron;
+package gimhub;
 
 import net.runelite.client.config.Config;
 import net.runelite.client.config.ConfigGroup;
 import net.runelite.client.config.ConfigItem;
 import net.runelite.client.config.ConfigSection;
 
-@ConfigGroup("GroupIronmenTracker")
-public interface GroupIronmenTrackerConfig extends Config {
+@ConfigGroup("GimHub")
+public interface GimHubConfig extends Config {
     @ConfigSection(
             name = "Group Config",
             description = "Enter the group details you created on the website here",

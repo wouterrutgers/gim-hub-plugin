@@ -1,4 +1,4 @@
-package men.groupiron;
+package gimhub;
 
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Item;

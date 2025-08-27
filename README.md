@@ -1,7 +1,6 @@
-# Group Ironmen Tracker Plugin
-Website: [groupiron.men](https://groupiron.men)  
-Demo: [grouiron.men/demo](https://groupiron.men/demo)  
-Source for frontend and server: [https://github.com/christoabrown/group-ironmen](https://github.com/christoabrown/group-ironmen)
+# GIM hub
+Website: [GIM hub](https://gim-hub.com)  
+Source for frontend and server: [https://github.com/wouterrutgers/gim-hub.com](https://github.com/wouterrutgers/gim-hub.com)
 
 This plugin tracks information about your group ironman player and sends it to a server where you and your other group members can view it. Currently it tracks:
 

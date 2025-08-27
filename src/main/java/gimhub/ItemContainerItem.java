@@ -1,4 +1,4 @@
-package men.groupiron;
+package gimhub;
 
 import lombok.Getter;
 
