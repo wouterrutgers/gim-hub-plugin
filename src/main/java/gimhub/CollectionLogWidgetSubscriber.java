@@ -1,6 +1,5 @@
 package gimhub;
 
-import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
@@ -9,6 +8,7 @@ import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.ScriptPostFired;
 import net.runelite.api.events.ScriptPreFired;
+import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.gameval.VarbitID;
 import net.runelite.client.eventbus.EventBus;
 import net.runelite.client.eventbus.Subscribe;
@@ -94,8 +94,9 @@ public class CollectionLogWidgetSubscriber {
             if (isAdventureLog) return;
 
             autoRetrieval = true;
-            client.menuAction(-1, 40697932, MenuAction.CC_OP, 1, -1, "Search", null);
-            client.runScript(2240);
+            client.menuAction(-1, InterfaceID.Collection.SEARCH_TOGGLE, MenuAction.CC_OP, 1, -1, "Search", null);
+            final int COLLECTION_INIT = 2240;
+            client.runScript(COLLECTION_INIT);
         }
     }
 }

@@ -3,6 +3,7 @@ package gimhub;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.*;
 import net.runelite.api.events.ScriptPreFired;
+import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.gameval.VarPlayerID;
 import net.runelite.api.gameval.VarbitID;
 import net.runelite.api.widgets.JavaScriptCallback;
@@ -27,16 +28,14 @@ public class ManualUpdateButtonManager {
 
     private final Client client;
     private final EventBus eventBus;
-    private final CollectionLogWidgetSubscriber clogWidgetSubscriber;
 
     private int baseMenuHeight = -1;
     private int lastAttemptedUpdate = -1;
 
     @Inject
-    public ManualUpdateButtonManager(Client client, EventBus eventBus, CollectionLogWidgetSubscriber clogWidgetSubscriber) {
+    public ManualUpdateButtonManager(Client client, EventBus eventBus) {
         this.client = client;
         this.eventBus = eventBus;
-        this.clogWidgetSubscriber = clogWidgetSubscriber;
     }
 
     public void startUp() {
@@ -78,8 +77,9 @@ public class ManualUpdateButtonManager {
             return;
         }
 
-        client.menuAction(-1, 40697932, MenuAction.CC_OP, 1, -1, "Search", null);
-        client.runScript(2240);
+        client.menuAction(-1, InterfaceID.Collection.SEARCH_TOGGLE, MenuAction.CC_OP, 1, -1, "Search", null);
+        final int COLLECTION_INIT = 2240;
+        client.runScript(COLLECTION_INIT);
         client.addChatMessage(ChatMessageType.CONSOLE, "GIM", "Syncing your collection log...", "GIM");
     }
 
