@@ -1,4 +1,4 @@
-package men.groupiron;
+package gimhub;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
