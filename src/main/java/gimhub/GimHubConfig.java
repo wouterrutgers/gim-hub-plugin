@@ -24,7 +24,7 @@ public interface GimHubConfig extends Config {
 
     @ConfigSection(
             name = "Debug",
-            description = "Debug / developer options",
+            description = "Developer options",
             position = 2,
             closedByDefault = true
     )
@@ -64,7 +64,7 @@ public interface GimHubConfig extends Config {
     @ConfigItem(
             keyName = "httpDebugLogging",
             name = "Enable HTTP debug logging",
-            description = "Logs full HTTP requests and responses (including headers and bodies). Contains sensitive data; disable for normal use.",
+            description = "Logs full HTTP requests and responses.",
             section = DEBUG_SECTION
     )
     default boolean httpDebugLogging() { return false; }
