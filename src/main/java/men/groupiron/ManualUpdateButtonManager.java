@@ -64,7 +64,7 @@ public class ManualUpdateButtonManager {
     }
 
     private void onButtonClick() {
-        Debounce frequent clicks
+        // Debounce frequent clicks
         if (lastAttemptedUpdate != -1 && lastAttemptedUpdate + 50 > client.getTickCount()) {
             int secsLeft = (int) round((lastAttemptedUpdate + 50 - client.getTickCount()) * 0.6);
             client.addChatMessage(ChatMessageType.CONSOLE, "GIM", "Last update within 30 seconds. You can update again in " + secsLeft + " seconds.", "GIM");
@@ -78,7 +78,6 @@ public class ManualUpdateButtonManager {
             return;
         }
 
-        clogWidgetSubscriber.setManualSync(true);
         client.menuAction(-1, 40697932, MenuAction.CC_OP, 1, -1, "Search", null);
         client.runScript(2240);
         client.addChatMessage(ChatMessageType.CONSOLE, "GIM", "Syncing your collection log...", "GIM");
