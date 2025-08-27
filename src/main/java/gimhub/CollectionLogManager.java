@@ -1,4 +1,4 @@
-package men.groupiron;
+package gimhub;
 
 import com.google.common.collect.ImmutableList;
 import lombok.extern.slf4j.Slf4j;

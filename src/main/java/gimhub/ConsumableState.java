@@ -1,4 +1,4 @@
-package men.groupiron;
+package gimhub;
 
 public interface ConsumableState {
     Object get();
