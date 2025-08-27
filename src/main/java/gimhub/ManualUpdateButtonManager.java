@@ -50,6 +50,11 @@ public class ManualUpdateButtonManager {
     public void onScriptPreFired(ScriptPreFired event) {
         if (event.getScriptId() != DRAW_BURGER_MENU) return;
 
+        // The button activates the search toggle, so only draw it when it is available
+        if (client.getWidget(InterfaceID.Collection.SEARCH_TOGGLE) == null) {
+            return;
+        }
+
         // args: [var0, var1, var2, menuId, ...]
         Object[] args = event.getScriptEvent().getArguments();
         if (args == null || args.length < 4) return;
