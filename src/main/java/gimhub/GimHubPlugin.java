@@ -6,6 +6,7 @@ import net.runelite.api.*;
 import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.*;
+import net.runelite.api.gameval.VarPlayerID;
 import net.runelite.api.widgets.Widget;
 import net.runelite.api.widgets.WidgetInfo;
 import net.runelite.client.callback.ClientThread;
@@ -112,7 +113,7 @@ public class GimHubPlugin extends Plugin {
 			return;
 
 		final int varpId = event.getVarpId();
-		if (varpId == VarPlayer.DIZANAS_QUIVER_ITEM_ID || varpId == VarPlayer.DIZANAS_QUIVER_ITEM_COUNT)
+		if (varpId == VarPlayerID.DIZANAS_QUIVER_TEMP_AMMO || varpId == VarPlayerID.DIZANAS_QUIVER_TEMP_AMMO_AMOUNT)
 		{
 			String playerName = client.getLocalPlayer().getName();
 			dataManager.getQuiver().update(new QuiverState(playerName, client, itemManager));

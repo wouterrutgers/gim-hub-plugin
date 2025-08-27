@@ -1,7 +1,7 @@
 package gimhub;
 
 import net.runelite.api.Client;
-import net.runelite.api.VarPlayer;
+import net.runelite.api.gameval.VarPlayerID;
 import net.runelite.client.game.ItemManager;
 
 public class QuiverState implements ConsumableState {
@@ -11,8 +11,8 @@ public class QuiverState implements ConsumableState {
     public QuiverState(String playerName, Client client, ItemManager itemManager) {
         this.playerName = playerName;
 
-        int id = client.getVarpValue(VarPlayer.DIZANAS_QUIVER_ITEM_ID);
-        int qty = client.getVarpValue(VarPlayer.DIZANAS_QUIVER_ITEM_COUNT);
+        int id = client.getVarpValue(VarPlayerID.DIZANAS_QUIVER_TEMP_AMMO);
+        int qty = client.getVarpValue(VarPlayerID.DIZANAS_QUIVER_TEMP_AMMO_AMOUNT);
         if (id <= 0 || qty <= 0) {
             this.ammo = new ItemContainerItem(0, 0);
         } else {
