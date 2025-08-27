@@ -8,15 +8,15 @@ import net.runelite.client.config.ConfigSection;
 @ConfigGroup("GimHub")
 public interface GimHubConfig extends Config {
     @ConfigSection(
-            name = "Group Config",
-            description = "Enter the group details you created on the website here",
+            name = "Group config",
+            description = "Enter the group details you created on the website here.",
             position = 0
     )
     String groupSection = "GroupSection";
 
     @ConfigSection(
-            name = "Self Hosted Config",
-            description = "Configure your connection to a self hosted server",
+            name = "Self hosted config",
+            description = "Configure your connection to a self hosted server.",
             position = 1,
             closedByDefault = true
     )
@@ -24,8 +24,8 @@ public interface GimHubConfig extends Config {
 
     @ConfigItem(
             keyName = "groupName",
-            name = "Group Name (on the website)",
-            description = "This is the group name you provided on the website when creating your group",
+            name = "Group name (on the website)",
+            description = "This is the group name you provided on the website when creating your group.",
             section = groupSection
     )
     default String groupName() {
@@ -34,7 +34,7 @@ public interface GimHubConfig extends Config {
 
     @ConfigItem(
             keyName = "groupToken",
-            name = "Group Token",
+            name = "Group token",
             description = "Secret token for your group provided by the website. Get this from the member which created the group on the site, or create a new one by visiting the site.",
             secret = true,
             section = groupSection

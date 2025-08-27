@@ -1,22 +1,68 @@
-# GIM hub
-Website: [GIM hub](https://gim-hub.com)  
-Source for frontend and server: [https://github.com/wouterrutgers/gim-hub.com](https://github.com/wouterrutgers/gim-hub.com)
+# 🏆 GIM Hub
 
-This plugin tracks information about your group ironman player and sends it to a server where you and your other group members can view it. Currently it tracks:
+<div align="center">
+  <img alt="GIM Hub Logo" src="logo.png" width="400"/>
+  
+  **A real-time dashboard for Old School RuneScape Group Ironman teams**
+  
+  Track your team's progress and view member locations with live data streaming from RuneLite.
+  
+  🌐 **[Visit GIM Hub →](https://gim-hub.com)**
+</div>
 
-* Inventory, equipment, bank, rune pouch, seed vault, and shared bank
-* Skill XP
-* World position, viewable in an interactive map
-* HP, prayer, energy, and world
-* Quest completion status
-* Health and position of npcs the player is interacting with
-* Achievement Diaries
-* Collection Log
+## ✨ Features
 
-![](https://i.imgur.com/1Mdz8RU.png)
-![](https://i.imgur.com/Rs0ruRE.png)
+### 📊 **Live team overview**
 
-## Setup
-Each group member that you want to track will need to install the plugin. Just one person will go to the site and create a group, the credentials it provides is shared with your group.
+- Real-time online status and world tracking
+- Current player interactions and activities
+- Live health, prayer, and run energy bars
+- Team member locations on interactive world map
 
-![](https://i.imgur.com/Dyi8LXL.png)
+### 🎒 **Inventory & equipment tracking**
+
+- Complete inventory and equipment views
+- Rune pouch contents with quantities
+- High alchemy and Grand Exchange values
+
+### 📈 **Skills & progress**
+
+- Individual skill levels and experience tracking
+- Total level and experience summaries
+- Live XP drops feed for current gains
+- Progress comparison between team members
+
+### 🗺️ **Quest & achievement progress**
+
+- Quest completion tracking
+- Achievement diary progress monitoring
+- Collection log browser with item counts
+
+## 🚀 Getting started
+
+### Prerequisites
+
+- Old School RuneScape GIM account
+- RuneLite client installed
+- Group Ironman team setup
+
+### Setup instructions
+
+1. **Install the RuneLite plugin**
+   - Open RuneLite
+   - Go to the plugin hub
+   - Search for "GIM Hub" and install
+
+2. **Configure your team**
+   - Create your group on [gim-hub.com](https://gim-hub.com)
+   - Copy your unique group token
+   - In RuneLite, open the GIM Hub plugin settings
+   - Enter your group name and group token
+
+3. **Start tracking**
+   - The plugin automatically streams your data
+   - View your team's progress on the GIM hub dashboard
+   - Invite teammates using your group token
+
+<img alt="RuneLite Plugin Configuration" src="plugin-screenshot.png" width="300"/>
+<em>Plugin configuration in RuneLite</em>
