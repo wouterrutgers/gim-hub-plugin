@@ -4,14 +4,9 @@ import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
-import okhttp3.Call;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.Response;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
-import java.io.IOException;
 import java.lang.reflect.Type;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -29,7 +24,7 @@ public class ItemNameLookup {
     private final Map<String, Integer> nameToId = new ConcurrentHashMap<>(16384);
 
     @Inject
-    private OkHttpClient httpClient;
+    private HttpRequestService httpRequestService;
 
     @Inject
     private Gson gson;
@@ -63,30 +58,26 @@ public class ItemNameLookup {
         }
     }
 
-    private Map<Integer, String> fetchNamesById() throws IOException {
+    private Map<Integer, String> fetchNamesById() throws Exception {
         String url = ITEM_CACHE_BASE_URL + "names.json";
-        String json = httpGet(url);
+        HttpRequestService.HttpResponse response = httpRequestService.get(url, null);
+        if (!response.isSuccessful()) {
+            throw new Exception("HTTP " + response.getCode() + " for " + url);
+        }
         Type type = new TypeToken<Map<Integer, String>>() {}.getType();
-        Map<Integer, String> map = gson.fromJson(json, type);
+        Map<Integer, String> map = gson.fromJson(response.getBody(), type);
         return map != null ? map : Collections.emptyMap();
     }
 
-    private Set<Integer> fetchNotedIds() throws IOException {
+    private Set<Integer> fetchNotedIds() throws Exception {
         String url = ITEM_CACHE_BASE_URL + "notes.json";
-        String json = httpGet(url);
+        HttpRequestService.HttpResponse response = httpRequestService.get(url, null);
+        if (!response.isSuccessful()) {
+            throw new Exception("HTTP " + response.getCode() + " for " + url);
+        }
         Type type = new TypeToken<Map<Integer, Integer>>() {}.getType();
-        Map<Integer, Integer> notes = gson.fromJson(json, type);
+        Map<Integer, Integer> notes = gson.fromJson(response.getBody(), type);
         return notes != null ? notes.keySet() : Collections.emptySet();
     }
 
-    private String httpGet(String url) throws IOException {
-        Request request = new Request.Builder().url(url).get().build();
-        Call call = httpClient.newCall(request);
-        try (Response response = call.execute()) {
-            if (!response.isSuccessful() || response.body() == null) {
-                throw new IOException("HTTP " + response.code() + " for " + url);
-            }
-            return Objects.requireNonNull(response.body()).string();
-        }
-    }
 }
