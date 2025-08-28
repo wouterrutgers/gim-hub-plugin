@@ -23,7 +23,7 @@ public class QuiverState implements ConsumableState {
 
     @Override
     public Object get() {
-        return new int[] { ammo.getId(), ammo.getQuantity() };
+        return new int[] {ammo.getId(), ammo.getQuantity()};
     }
 
     @Override
@@ -42,7 +42,7 @@ public class QuiverState implements ConsumableState {
         }
 
         QuiverState other = (QuiverState) o;
-        
+
         return this.ammo.equals(other.ammo);
     }
 

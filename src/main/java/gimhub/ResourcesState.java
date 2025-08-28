@@ -8,6 +8,7 @@ public class ResourcesState implements ConsumableState {
     private static class CurrentMax {
         @Getter
         private final int current;
+
         @Getter
         private final int max;
 
@@ -28,38 +29,31 @@ public class ResourcesState implements ConsumableState {
 
     @Getter
     private final CurrentMax hitpoints;
+
     @Getter
     private final CurrentMax prayer;
+
     @Getter
     private final CurrentMax energy;
+
     @Getter
     int world;
-    private transient final String playerName;
+
+    private final transient String playerName;
 
     ResourcesState(String playerName, Client client) {
         this.playerName = playerName;
-        hitpoints = new CurrentMax(
-                client.getBoostedSkillLevel(Skill.HITPOINTS),
-                client.getRealSkillLevel(Skill.HITPOINTS)
-        );
-        prayer = new CurrentMax(
-                client.getBoostedSkillLevel(Skill.PRAYER),
-                client.getRealSkillLevel(Skill.PRAYER)
-        );
-        energy = new CurrentMax(
-                client.getEnergy(),
-                100
-        );
+        hitpoints =
+                new CurrentMax(client.getBoostedSkillLevel(Skill.HITPOINTS), client.getRealSkillLevel(Skill.HITPOINTS));
+        prayer = new CurrentMax(client.getBoostedSkillLevel(Skill.PRAYER), client.getRealSkillLevel(Skill.PRAYER));
+        energy = new CurrentMax(client.getEnergy(), 100);
         world = client.getWorld();
     }
 
     @Override
     public Object get() {
         return new int[] {
-                hitpoints.current, hitpoints.max,
-                prayer.current, prayer.max,
-                energy.current, energy.max,
-                world
+            hitpoints.current, hitpoints.max, prayer.current, prayer.max, energy.current, energy.max, world
         };
     }
 
@@ -75,6 +69,9 @@ public class ResourcesState implements ConsumableState {
 
         ResourcesState other = (ResourcesState) o;
 
-        return other.world == world && other.hitpoints.equals(hitpoints) && other.prayer.equals(prayer) && other.energy.equals(energy);
+        return other.world == world
+                && other.hitpoints.equals(hitpoints)
+                && other.prayer.equals(prayer)
+                && other.energy.equals(energy);
     }
 }

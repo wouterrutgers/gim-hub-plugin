@@ -2,19 +2,17 @@ package gimhub;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
-import lombok.NonNull;
-import lombok.extern.slf4j.Slf4j;
-
-import javax.inject.Inject;
-import javax.inject.Singleton;
 import java.lang.reflect.Type;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import javax.inject.Inject;
+import javax.inject.Singleton;
+import lombok.NonNull;
+import lombok.extern.slf4j.Slf4j;
 
 /**
- * Lightweight name -> id lookup using RuneLite's public item cache.
- * Fetches id->name and noted->unnoted mappings and builds a case-sensitive
- * name->id map excluding noted variants.
+ * Lightweight name -> id lookup using RuneLite's public item cache. Fetches id->name and noted->unnoted mappings and
+ * builds a case-sensitive name->id map excluding noted variants.
  */
 @Slf4j
 @Singleton
@@ -81,5 +79,4 @@ public class ItemNameLookup {
 
         return notes != null ? notes.keySet() : Collections.emptySet();
     }
-
 }

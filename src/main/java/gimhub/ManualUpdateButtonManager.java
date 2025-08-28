@@ -1,5 +1,10 @@
 package gimhub;
 
+import static java.lang.Math.round;
+
+import java.util.*;
+import javax.inject.Inject;
+import javax.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.*;
 import net.runelite.api.events.ScriptPreFired;
@@ -11,12 +16,6 @@ import net.runelite.api.widgets.Widget;
 import net.runelite.api.widgets.WidgetType;
 import net.runelite.client.eventbus.EventBus;
 import net.runelite.client.eventbus.Subscribe;
-
-import javax.inject.Inject;
-import javax.inject.Singleton;
-import java.util.*;
-
-import static java.lang.Math.round;
 
 @Slf4j
 @Singleton
@@ -71,7 +70,11 @@ public class ManualUpdateButtonManager {
         // Debounce frequent clicks
         if (lastAttemptedUpdate != -1 && lastAttemptedUpdate + 50 > client.getTickCount()) {
             int secsLeft = (int) round((lastAttemptedUpdate + 50 - client.getTickCount()) * 0.6);
-            client.addChatMessage(ChatMessageType.CONSOLE, "GIM", "Last update within 30 seconds. You can update again in " + secsLeft + " seconds.", "GIM");
+            client.addChatMessage(
+                    ChatMessageType.CONSOLE,
+                    "GIM",
+                    "Last update within 30 seconds. You can update again in " + secsLeft + " seconds.",
+                    "GIM");
             return;
         }
         lastAttemptedUpdate = client.getTickCount();

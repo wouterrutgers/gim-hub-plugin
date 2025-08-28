@@ -1,13 +1,12 @@
 package gimhub;
 
 import com.google.gson.Gson;
+import java.io.IOException;
+import javax.inject.Inject;
+import javax.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.client.RuneLiteProperties;
 import okhttp3.*;
-
-import javax.inject.Inject;
-import javax.inject.Singleton;
-import java.io.IOException;
 
 @Slf4j
 @Singleton
@@ -15,13 +14,13 @@ public class HttpRequestService {
     private static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
     private static final String USER_AGENT = "GIM-hub/RuneLite/" + RuneLiteProperties.getVersion();
     private static final String PUBLIC_BASE_URL = "https://gim-hub.com";
-    
+
     @Inject
     private OkHttpClient okHttpClient;
-    
+
     @Inject
     private GimHubConfig config;
-    
+
     @Inject
     private Gson gson;
 
@@ -39,7 +38,7 @@ public class HttpRequestService {
     public HttpResponse post(String url, String authToken, Object requestBody) {
         String requestJson = gson.toJson(requestBody);
         RequestBody body = RequestBody.create(JSON, requestJson);
-        
+
         Request request = new Request.Builder()
                 .url(url)
                 .header("Authorization", authToken)
@@ -52,16 +51,16 @@ public class HttpRequestService {
 
     private HttpResponse executeRequest(Request request, String method, String url, String requestBody) {
         Call call = okHttpClient.newCall(request);
-        
+
         try (Response response = call.execute()) {
             String responseBody = readBodySafe(response);
-            
+
             if (config.httpDebugLogging()) {
                 logRequest(method, url, requestBody, response, responseBody);
             }
 
             return new HttpResponse(response.isSuccessful(), response.code(), responseBody);
-            
+
         } catch (IOException ex) {
             if (config.httpDebugLogging()) {
                 log.warn("{} {} failed: {}", method, url, ex.toString());
@@ -75,12 +74,12 @@ public class HttpRequestService {
         if ("GET".equals(method)) {
             log.info("GET {} -> {}\nresp: {}", url, response.code(), truncate(responseBody, 2000));
         } else if ("POST".equals(method)) {
-            log.info("POST {}\nreq: {}\nresp({}): {}", 
-                url, 
-                truncate(requestBody, 2000), 
-                response.code(), 
-                truncate(responseBody, 2000)
-            );
+            log.info(
+                    "POST {}\nreq: {}\nresp({}): {}",
+                    url,
+                    truncate(requestBody, 2000),
+                    response.code(),
+                    truncate(responseBody, 2000));
         }
     }
 
@@ -97,7 +96,7 @@ public class HttpRequestService {
     private static String truncate(String s, int max) {
         if (s == null) return "";
         if (s.length() <= max) return s;
-        
+
         return s.substring(0, max) + "...(" + s.length() + " chars)";
     }
 
