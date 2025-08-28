@@ -1,6 +1,11 @@
 package gimhub;
 
 import com.google.gson.Gson;
+import java.util.EnumSet;
+import java.util.HashMap;
+import java.util.Map;
+import javax.inject.Inject;
+import javax.inject.Singleton;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
@@ -8,25 +13,24 @@ import net.runelite.api.WorldType;
 import net.runelite.client.RuneLiteProperties;
 import okhttp3.*;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
-import java.util.EnumSet;
-import java.util.HashMap;
-import java.util.Map;
-
 @Slf4j
 @Singleton
 public class DataManager {
     @Inject
     Client client;
+
     @Inject
     GimHubConfig config;
+
     @Inject
     private Gson gson;
+
     @Inject
     private OkHttpClient okHttpClient;
+
     @Inject
     private PlayerDataService playerDataService;
+
     private static final String PUBLIC_BASE_URL = "https://gim-hub.com";
     private static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
     private static final String USER_AGENT = "GIM-hub/RuneLite/" + RuneLiteProperties.getVersion();
@@ -35,30 +39,43 @@ public class DataManager {
 
     @Getter
     private final DataState inventory = new DataState("inventory", false);
+
     @Getter
     private final DataState bank = new DataState("bank", false);
+
     @Getter
     private final DataState equipment = new DataState("equipment", false);
+
     @Getter
     private final DataState sharedBank = new DataState("shared_bank", true);
+
     @Getter
     private final DataState resources = new DataState("stats", false);
+
     @Getter
     private final DataState skills = new DataState("skills", false);
+
     @Getter
     private final DataState quests = new DataState("quests", false);
+
     @Getter
     private final DataState position = new DataState("coordinates", false);
+
     @Getter
     private final DataState runePouch = new DataState("rune_pouch", false);
+
     @Getter
     private final DataState quiver = new DataState("quiver", false);
+
     @Getter
     private final DataState interacting = new DataState("interacting", false);
+
     @Getter
     private final DataState seedVault = new DataState("seed_vault", false);
+
     @Getter
     private final DataState achievementDiary = new DataState("diary_vars", false);
+
     @Getter
     private final DepositedItems deposited = new DepositedItems();
 
@@ -130,7 +147,12 @@ public class DataManager {
                     try (Response response = call.execute()) {
                         if (config.httpDebugLogging()) {
                             String respText = readBodySafe(response);
-                            log.info("POST {}\nreq: {}\nresp({}): {}", url, truncate(requestJson, 2000), response.code(), truncate(respText, 2000));
+                            log.info(
+                                    "POST {}\nreq: {}\nresp({}): {}",
+                                    url,
+                                    truncate(requestJson, 2000),
+                                    response.code(),
+                                    truncate(respText, 2000));
                         }
                         if (!response.isSuccessful()) {
                             skipNextNAttempts = 10;
@@ -150,8 +172,7 @@ public class DataManager {
                     skipNextNAttempts = 10;
                     restoreStateIfNothingUpdated();
                 }
-            }
-            else if (config.httpDebugLogging()) {
+            } else if (config.httpDebugLogging()) {
                 log.info("Skip POST: no changes to send (fields={})", updates.size());
             }
         }
@@ -239,12 +260,12 @@ public class DataManager {
     private boolean isBadWorldType() {
         EnumSet<WorldType> worldTypes = client.getWorldType();
         for (WorldType worldType : worldTypes) {
-            if (worldType == WorldType.SEASONAL ||
-                    worldType == WorldType.DEADMAN ||
-                    worldType == WorldType.TOURNAMENT_WORLD ||
-                    worldType == WorldType.PVP_ARENA ||
-                    worldType == WorldType.BETA_WORLD ||
-                    worldType == WorldType.QUEST_SPEEDRUNNING) {
+            if (worldType == WorldType.SEASONAL
+                    || worldType == WorldType.DEADMAN
+                    || worldType == WorldType.TOURNAMENT_WORLD
+                    || worldType == WorldType.PVP_ARENA
+                    || worldType == WorldType.BETA_WORLD
+                    || worldType == WorldType.QUEST_SPEEDRUNNING) {
                 return true;
             }
         }

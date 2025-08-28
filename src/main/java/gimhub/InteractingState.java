@@ -7,12 +7,16 @@ import net.runelite.api.coords.WorldPoint;
 
 public class InteractingState implements ConsumableState {
     private final String playerName;
+
     @Getter
     private final String name;
+
     @Getter
     private final int scale;
+
     @Getter
     private final int ratio;
+
     @Getter
     private final LocationState location;
 
@@ -46,7 +50,7 @@ public class InteractingState implements ConsumableState {
 
     @Override
     public int hashCode() {
-        // Since equals() always returns false (except for self-reference), 
+        // Since equals() always returns false (except for self-reference),
         // each instance should have a unique hash code
         return System.identityHashCode(this);
     }

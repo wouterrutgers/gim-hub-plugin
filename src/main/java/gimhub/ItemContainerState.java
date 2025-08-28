@@ -1,15 +1,14 @@
 package gimhub;
 
-import lombok.extern.slf4j.Slf4j;
-import net.runelite.api.Item;
-import net.runelite.api.ItemContainer;
-import net.runelite.client.game.ItemManager;
-
-import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
+import net.runelite.api.Item;
+import net.runelite.api.ItemContainer;
+import net.runelite.client.game.ItemManager;
 
 @Slf4j
 public class ItemContainerState implements ConsumableState {
@@ -48,8 +47,7 @@ public class ItemContainerState implements ConsumableState {
         this.items = items;
     }
 
-    @Nullable
-    public ItemContainerState add(ItemContainerState itemsToAdd) {
+    @Nullable public ItemContainerState add(ItemContainerState itemsToAdd) {
         if (itemsToAdd == null || !itemsToAdd.whoOwnsThis().equals(whoOwnsThis())) return null;
         Map<Integer, ItemContainerItem> thisItems = getItemMap();
         Map<Integer, ItemContainerItem> otherItems = itemsToAdd.getItemMap();
@@ -74,8 +72,7 @@ public class ItemContainerState implements ConsumableState {
         return new ItemContainerState(whoOwnsThis(), result);
     }
 
-    @Nullable
-    public ItemContainerState whatGotRemoved(ItemContainerState other) {
+    @Nullable public ItemContainerState whatGotRemoved(ItemContainerState other) {
         if (other == null || !other.whoOwnsThis().equals(whoOwnsThis())) return null;
         Map<Integer, ItemContainerItem> thisItems = getItemMap();
         Map<Integer, ItemContainerItem> otherItems = other.getItemMap();

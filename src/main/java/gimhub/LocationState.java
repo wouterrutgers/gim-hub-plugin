@@ -6,11 +6,14 @@ import net.runelite.api.coords.WorldPoint;
 public class LocationState implements ConsumableState {
     @Getter
     private final int x;
+
     @Getter
     private final int y;
+
     @Getter
     private final int plane;
-    private transient final String playerName;
+
+    private final transient String playerName;
 
     LocationState(String playerName, WorldPoint worldPoint) {
         this.playerName = playerName;
@@ -21,7 +24,7 @@ public class LocationState implements ConsumableState {
 
     @Override
     public Object get() {
-        return new int[] { x, y, plane };
+        return new int[] {x, y, plane};
     }
 
     @Override

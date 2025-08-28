@@ -6,8 +6,7 @@ public class DepositedItems {
     private ItemContainerState items = null;
     private ItemContainerState consumedItems = null;
 
-    public DepositedItems() {
-    }
+    public DepositedItems() {}
 
     public synchronized void update(ItemContainerState deposited) {
         if (deposited == null) return;
