@@ -3,7 +3,7 @@ package gimhub;
 import net.runelite.api.Client;
 import net.runelite.api.EnumComposition;
 import net.runelite.api.EnumID;
-import net.runelite.api.Varbits;
+import net.runelite.api.gameval.VarbitID;
 
 public class RunePouchState implements ConsumableState {
     private final ItemContainerItem rune1;
@@ -15,10 +15,10 @@ public class RunePouchState implements ConsumableState {
     public RunePouchState(String playerName, Client client) {
         this.playerName = playerName;
         final EnumComposition runepouchEnum = client.getEnum(EnumID.RUNEPOUCH_RUNE);
-        rune1 = itemForRune(client.getVarbitValue(Varbits.RUNE_POUCH_RUNE1), client.getVarbitValue(Varbits.RUNE_POUCH_AMOUNT1), runepouchEnum);
-        rune2 = itemForRune(client.getVarbitValue(Varbits.RUNE_POUCH_RUNE2), client.getVarbitValue(Varbits.RUNE_POUCH_AMOUNT2), runepouchEnum);
-        rune3 = itemForRune(client.getVarbitValue(Varbits.RUNE_POUCH_RUNE3), client.getVarbitValue(Varbits.RUNE_POUCH_AMOUNT3), runepouchEnum);
-        rune4 = itemForRune(client.getVarbitValue(Varbits.RUNE_POUCH_RUNE4), client.getVarbitValue(Varbits.RUNE_POUCH_AMOUNT4), runepouchEnum);
+        rune1 = itemForRune(client.getVarbitValue(VarbitID.RUNE_POUCH_TYPE_1), client.getVarbitValue(VarbitID.RUNE_POUCH_QUANTITY_1), runepouchEnum);
+        rune2 = itemForRune(client.getVarbitValue(VarbitID.RUNE_POUCH_TYPE_2), client.getVarbitValue(VarbitID.RUNE_POUCH_QUANTITY_2), runepouchEnum);
+        rune3 = itemForRune(client.getVarbitValue(VarbitID.RUNE_POUCH_TYPE_3), client.getVarbitValue(VarbitID.RUNE_POUCH_QUANTITY_3), runepouchEnum);
+        rune4 = itemForRune(client.getVarbitValue(VarbitID.RUNE_POUCH_TYPE_4), client.getVarbitValue(VarbitID.RUNE_POUCH_QUANTITY_4), runepouchEnum);
     }
 
     private ItemContainerItem itemForRune(int runeId, int amount, EnumComposition runepouchEnum) {

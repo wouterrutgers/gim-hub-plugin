@@ -6,8 +6,10 @@ import net.runelite.api.*;
 import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.*;
+import net.runelite.api.gameval.InventoryID;
+import net.runelite.api.gameval.InterfaceID;
+import net.runelite.api.gameval.VarClientID;
 import net.runelite.api.widgets.Widget;
-import net.runelite.api.widgets.WidgetInfo;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
@@ -37,9 +39,15 @@ public class GimHubPlugin extends Plugin {
 	@Inject
 	private ItemManager itemManager;
 	@Inject
-	private CollectionLogManager collectionLogManager;
+    ClientThread clientThread;
+    @Inject
+    private PlayerDataService playerDataService;
+    @Inject
+    private ManualUpdateButtonManager manualUpdateButtonManager;
+    @Inject
+    private CollectionLogWidgetSubscriber collectionLogWidgetSubscriber;
 	@Inject
-	ClientThread clientThread;
+    private ItemNameLookup itemNameLookup;
 	private int itemsDeposited = 0;
 	private static final int SECONDS_BETWEEN_UPLOADS = 1;
 	private static final int SECONDS_BETWEEN_INFREQUENT_DATA_CHANGES = 60;
@@ -48,20 +56,22 @@ public class GimHubPlugin extends Plugin {
 	private static final int DEPOSIT_EQUIPMENT = 12582918;
 	private static final int CHATBOX_ENTERED = 681;
 	private static final int GROUP_STORAGE_LOADER = 293;
-	private static final int COLLECTION_LOG_INVENTORYID = 620;
 	private static final Pattern COLLECTION_LOG_ITEM_PATTERN = Pattern.compile("New item added to your collection log: (.*)");
 	private boolean notificationStarted = false;
 
 	@Override
 	protected void startUp() throws Exception {
-		clientThread.invokeLater(() -> {
-			collectionLogManager.initCollectionLog();
-		});
+        manualUpdateButtonManager.startUp();
+        collectionLogWidgetSubscriber.startUp();
+        itemNameLookup.startUp();
 		log.info("GIM hub started!");
 	}
 
 	@Override
 	protected void shutDown() throws Exception {
+        manualUpdateButtonManager.shutDown();
+        collectionLogWidgetSubscriber.shutDown();
+        itemNameLookup.shutDown();
 		log.info("GIM hub stopped!");
 	}
 
@@ -110,12 +120,10 @@ public class GimHubPlugin extends Plugin {
 		updateInteracting();
 
 		Widget groupStorageLoaderText = client.getWidget(GROUP_STORAGE_LOADER, 1);
-		if (groupStorageLoaderText != null) {
-			if (groupStorageLoaderText.getText().equalsIgnoreCase("saving...")) {
-				dataManager.getSharedBank().commitTransaction();
-			}
-		}
-	}
+        if (groupStorageLoaderText != null && groupStorageLoaderText.getText().equalsIgnoreCase("saving...")) {
+            dataManager.getSharedBank().commitTransaction();
+        }
+    }
 
 	@Subscribe
 	public void onStatChanged(StatChanged statChanged) {
@@ -133,48 +141,44 @@ public class GimHubPlugin extends Plugin {
 		final int id = event.getContainerId();
 		ItemContainer container = event.getItemContainer();
 
-		if (id == InventoryID.BANK.getId()) {
+		if (id == InventoryID.BANK) {
 			dataManager.getDeposited().reset();
 			dataManager.getBank().update(new ItemContainerState(playerName, container, itemManager));
-		} else if (id == InventoryID.SEED_VAULT.getId()) {
+		} else if (id == InventoryID.SEED_VAULT) {
 			dataManager.getSeedVault().update(new ItemContainerState(playerName, container, itemManager));
-		} else if (id == InventoryID.INVENTORY.getId()) {
+		} else if (id == InventoryID.INV) {
 			ItemContainerState newInventoryState = new ItemContainerState(playerName, container, itemManager, 28);
 			if (itemsDeposited > 0) {
 				updateDeposited(newInventoryState, (ItemContainerState) dataManager.getInventory().mostRecentState());
 			}
 
 			dataManager.getInventory().update(newInventoryState);
-		} else if (id == InventoryID.EQUIPMENT.getId()) {
+		} else if (id == InventoryID.WORN) {
 			ItemContainerState newEquipmentState = new ItemContainerState(playerName, container, itemManager, 14);
 			if (itemsDeposited > 0) {
 				updateDeposited(newEquipmentState, (ItemContainerState) dataManager.getEquipment().mostRecentState());
 			}
 
 			dataManager.getEquipment().update(newEquipmentState);
-		} else if (id == InventoryID.GROUP_STORAGE.getId()) {
+		} else if (id == InventoryID.INV_GROUP_TEMP) {
 			dataManager.getSharedBank().update(new ItemContainerState(playerName, container, itemManager));
-		} else if (id == COLLECTION_LOG_INVENTORYID) {
-			collectionLogManager.updateCollection(new ItemContainerState(playerName, container, itemManager));
 		}
 	}
 
 	@Subscribe
 	private void onScriptPostFired(ScriptPostFired event) {
-		if (event.getScriptId() == CHATBOX_ENTERED && client.getWidget(WidgetInfo.DEPOSIT_BOX_INVENTORY_ITEMS_CONTAINER) != null) {
-			itemsMayHaveBeenDeposited();
-		}
+        if (event.getScriptId() == CHATBOX_ENTERED && client.getWidget(InterfaceID.BankDepositbox.INVENTORY) != null) {
+            itemsMayHaveBeenDeposited();
+        }
 	}
 
 	@Subscribe
 	private void onMenuOptionClicked(MenuOptionClicked event) {
 		final int param1 = event.getParam1();
 		final MenuAction menuAction = event.getMenuAction();
-		if (menuAction == MenuAction.CC_OP) {
-			if (param1 == DEPOSIT_ITEM || param1 == DEPOSIT_INVENTORY || param1 == DEPOSIT_EQUIPMENT) {
-				itemsMayHaveBeenDeposited();
-			}
-		}
+        if (menuAction == MenuAction.CC_OP && (param1 == DEPOSIT_ITEM || param1 == DEPOSIT_INVENTORY || param1 == DEPOSIT_EQUIPMENT)) {
+            itemsMayHaveBeenDeposited();
+        }
 	}
 
 	@Subscribe
@@ -193,31 +197,41 @@ public class GimHubPlugin extends Plugin {
 		if (matcher.find()) {
 			String itemName = Text.removeTags(matcher.group(1));
 			if (!StringUtils.isBlank(itemName)) {
-				collectionLogManager.updateNewItem(itemName);
+                handleNewCollectionItem(itemName.trim());
 			}
 		}
 	}
 
 	@Subscribe
-	public void onScriptPreFired(ScriptPreFired scriptPreFired)
-	{
-		switch (scriptPreFired.getScriptId())
-		{
-			case ScriptID.NOTIFICATION_START:
-				notificationStarted = true;
-				break;
-			case ScriptID.NOTIFICATION_DELAY:
-				if (!notificationStarted) return;
-				String topText = client.getVarcStrValue(VarClientStr.NOTIFICATION_TOP_TEXT);
-				String bottomText = client.getVarcStrValue(VarClientStr.NOTIFICATION_BOTTOM_TEXT);
-				if (topText.equalsIgnoreCase("Collection log")) {
-					String entry = Text.removeTags(bottomText).substring("New item:".length());
-					collectionLogManager.updateNewItem(entry);
-				}
-				notificationStarted = false;
-				break;
-		}
-	}
+    public void onScriptPreFired(ScriptPreFired scriptPreFired)
+    {
+        int scriptId = scriptPreFired.getScriptId();
+        if (scriptId == ScriptID.NOTIFICATION_START) {
+            notificationStarted = true;
+        } else if (scriptId == ScriptID.NOTIFICATION_DELAY) {
+            if (!notificationStarted) return;
+            String topText = client.getVarcStrValue(VarClientID.NOTIFICATION_TITLE);
+            if (topText.equalsIgnoreCase("Collection log")) {
+                String bottom = client.getVarcStrValue(VarClientID.NOTIFICATION_MAIN);
+                String cleaned = Text.removeTags(bottom);
+                String name = cleaned.replace("New item:", "").trim();
+                handleNewCollectionItem(name);
+            }
+            notificationStarted = false;
+        }
+    }
+
+    private void handleNewCollectionItem(String itemName) {
+        try {
+            Integer itemId = itemNameLookup.findItemId(itemName);
+            if (itemId != null) {
+                playerDataService.storeClogItem(itemId, 1);
+                return;
+            }
+        } catch (Exception ignored) {
+            //
+        }
+    }
 
 	private void itemsMayHaveBeenDeposited() {
 		// NOTE: In order to determine if an item has gone through the deposit box we first detect if any of the menu
