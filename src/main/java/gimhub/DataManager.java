@@ -94,9 +94,7 @@ public class DataManager {
                 boolean isMember = checkIfPlayerIsInGroup(groupToken, playerName);
 
                 if (!isMember) {
-                    if (config.httpDebugLogging()) {
-                        log.info("Skip POST: not a member (401/forbidden). Backing off.");
-                    }
+                    log.debug("Skip POST: not a member (401/forbidden). Backing off.");
                     // NOTE: We don't really need to check this everytime I don't think.
                     // Waiting for a game state event is not what we really want either
                     // since membership can change at anytime from the website.
@@ -108,9 +106,7 @@ public class DataManager {
 
             String url = getUpdateGroupMemberUrl();
             if (url == null) {
-                if (config.httpDebugLogging()) {
-                    log.info("Skip POST: URL is null (check base URL and group name).");
-                }
+                log.debug("Skip POST: URL is null (check base URL and group name).");
                 return;
             }
 
@@ -145,15 +141,13 @@ public class DataManager {
                     Call call = okHttpClient.newCall(request);
 
                     try (Response response = call.execute()) {
-                        if (config.httpDebugLogging()) {
-                            String respText = readBodySafe(response);
-                            log.info(
-                                    "POST {}\nreq: {}\nresp({}): {}",
-                                    url,
-                                    truncate(requestJson, 2000),
-                                    response.code(),
-                                    truncate(respText, 2000));
-                        }
+                        String respText = readBodySafe(response);
+                        log.debug(
+                                "POST {}\nreq: {}\nresp({}): {}",
+                                url,
+                                truncate(requestJson, 2000),
+                                response.code(),
+                                truncate(respText, 2000));
                         if (!response.isSuccessful()) {
                             skipNextNAttempts = 10;
                             if (response.code() == 401) {
@@ -166,14 +160,12 @@ public class DataManager {
                         }
                     }
                 } catch (Exception ex) {
-                    if (config.httpDebugLogging()) {
-                        log.warn("POST {} failed: {}", url, ex.toString());
-                    }
+                    log.warn("POST {} failed: {}", url, ex.toString());
                     skipNextNAttempts = 10;
                     restoreStateIfNothingUpdated();
                 }
-            } else if (config.httpDebugLogging()) {
-                log.info("Skip POST: no changes to send (fields={})", updates.size());
+            } else {
+                log.debug("Skip POST: no changes to send (fields={})", updates.size());
             }
         }
     }
@@ -191,15 +183,11 @@ public class DataManager {
         Call call = okHttpClient.newCall(request);
 
         try (Response response = call.execute()) {
-            if (config.httpDebugLogging()) {
-                String respText = readBodySafe(response);
-                log.info("GET {} -> {}\nresp: {}", url, response.code(), truncate(respText, 2000));
-            }
+            String respText = readBodySafe(response);
+            log.debug("GET {} -> {}\nresp: {}", url, response.code(), truncate(respText, 2000));
             return response.isSuccessful();
         } catch (Exception ex) {
-            if (config.httpDebugLogging()) {
-                log.warn("GET {} failed: {}", url, ex.toString());
-            }
+            log.warn("GET {} failed: {}", url, ex.toString());
             return false;
         }
     }

@@ -57,7 +57,7 @@ public class ItemNameLookup {
 
             log.debug("ItemNameLookup initialized with {} entries", nameToId.size());
         } catch (Exception e) {
-            log.warn("ItemNameLookup initialization failed: {}", e.toString());
+            log.error("ItemNameLookup initialization failed: {}", e.toString());
         }
     }
 

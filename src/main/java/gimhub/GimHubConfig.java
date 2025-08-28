@@ -20,9 +20,6 @@ public interface GimHubConfig extends Config {
             closedByDefault = true)
     String CONNECTION_SECTION = "ConnectionSection";
 
-    @ConfigSection(name = "Debug", description = "Developer options", position = 2, closedByDefault = true)
-    String DEBUG_SECTION = "DebugSection";
-
     @ConfigItem(
             keyName = "groupName",
             name = "Group name (on the website)",
@@ -51,14 +48,5 @@ public interface GimHubConfig extends Config {
             section = CONNECTION_SECTION)
     default String baseUrlOverride() {
         return "";
-    }
-
-    @ConfigItem(
-            keyName = "httpDebugLogging",
-            name = "Enable HTTP debug logging",
-            description = "Logs full HTTP requests and responses.",
-            section = DEBUG_SECTION)
-    default boolean httpDebugLogging() {
-        return false;
     }
 }
