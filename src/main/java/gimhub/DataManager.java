@@ -188,7 +188,7 @@ public class DataManager {
 
         if (baseUrl == null || groupName == null) return null;
 
-        return String.format("%s/api/group/%s/am-i-in-group?member_name=%s", baseUrl, groupName, playerName);
+        return String.format("%s/api/group/%s/am-i-in-group?name=%s", baseUrl, groupName, playerName);
     }
 
     private boolean isBadWorldType() {
