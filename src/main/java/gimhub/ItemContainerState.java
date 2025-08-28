@@ -110,6 +110,7 @@ public class ItemContainerState implements ConsumableState {
                 itemMap.put(id, new ItemContainerItem(id, itemContainerItem.getQuantity()));
             }
         }
+
         return itemMap;
     }
 
@@ -136,6 +137,7 @@ public class ItemContainerState implements ConsumableState {
             result.add(item.getId());
             result.add(item.getQuantity());
         }
+
         return result;
     }
 

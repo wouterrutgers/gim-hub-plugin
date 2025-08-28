@@ -32,7 +32,7 @@ public class HttpRequestService {
                 .header("User-Agent", USER_AGENT)
                 .get()
                 .build();
-                
+
         return executeRequest(request, "GET", url, null);
     }
 
@@ -46,7 +46,7 @@ public class HttpRequestService {
                 .header("User-Agent", USER_AGENT)
                 .post(body)
                 .build();
-                
+
         return executeRequest(request, "POST", url, requestJson);
     }
 
@@ -59,13 +59,14 @@ public class HttpRequestService {
             if (config.httpDebugLogging()) {
                 logRequest(method, url, requestBody, response, responseBody);
             }
-            
+
             return new HttpResponse(response.isSuccessful(), response.code(), responseBody);
             
         } catch (IOException ex) {
             if (config.httpDebugLogging()) {
                 log.warn("{} {} failed: {}", method, url, ex.toString());
             }
+
             return new HttpResponse(false, -1, ex.getMessage());
         }
     }
@@ -86,6 +87,7 @@ public class HttpRequestService {
     private static String readBodySafe(Response response) {
         try {
             ResponseBody rb = response.body();
+
             return rb != null ? rb.string() : "<no body>";
         } catch (Exception e) {
             return "<unavailable: " + e.getMessage() + ">";
@@ -95,6 +97,7 @@ public class HttpRequestService {
     private static String truncate(String s, int max) {
         if (s == null) return "";
         if (s.length() <= max) return s;
+        
         return s.substring(0, max) + "...(" + s.length() + " chars)";
     }
 
@@ -103,6 +106,7 @@ public class HttpRequestService {
         if (!baseUrlOverride.isEmpty()) {
             return baseUrlOverride;
         }
+
         return PUBLIC_BASE_URL;
     }
 

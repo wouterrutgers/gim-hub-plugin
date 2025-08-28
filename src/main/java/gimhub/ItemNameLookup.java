@@ -66,6 +66,7 @@ public class ItemNameLookup {
         }
         Type type = new TypeToken<Map<Integer, String>>() {}.getType();
         Map<Integer, String> map = gson.fromJson(response.getBody(), type);
+
         return map != null ? map : Collections.emptyMap();
     }
 
@@ -77,6 +78,7 @@ public class ItemNameLookup {
         }
         Type type = new TypeToken<Map<Integer, Integer>>() {}.getType();
         Map<Integer, Integer> notes = gson.fromJson(response.getBody(), type);
+
         return notes != null ? notes.keySet() : Collections.emptySet();
     }
 

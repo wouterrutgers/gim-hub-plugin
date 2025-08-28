@@ -45,6 +45,7 @@ public class DataState {
             if (whoOwnsThis != null && whoOwnsThis.equals(whoIsUpdating)) {
                 Object c = consumedState.get();
                 output.put(key, c);
+
                 return c;
             }
         }
