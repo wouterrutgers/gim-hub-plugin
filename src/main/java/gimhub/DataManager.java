@@ -52,6 +52,8 @@ public class DataManager {
     @Getter
     private final DataState runePouch = new DataState("rune_pouch", false);
     @Getter
+    private final DataState quiver = new DataState("quiver", false);
+    @Getter
     private final DataState interacting = new DataState("interacting", false);
     @Getter
     private final DataState seedVault = new DataState("seed_vault", false);
@@ -106,6 +108,7 @@ public class DataManager {
             quests.consumeState(updates);
             position.consumeState(updates);
             runePouch.consumeState(updates);
+            quiver.consumeState(updates);
             interacting.consumeState(updates);
             deposited.consumeState(updates);
             seedVault.consumeState(updates);
@@ -191,6 +194,7 @@ public class DataManager {
         quests.restoreState();
         position.restoreState();
         runePouch.restoreState();
+        quiver.restoreState();
         interacting.restoreState();
         deposited.restoreState();
         seedVault.restoreState();

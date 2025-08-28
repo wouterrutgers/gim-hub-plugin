@@ -9,6 +9,7 @@ import net.runelite.api.events.*;
 import net.runelite.api.gameval.InventoryID;
 import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.gameval.VarClientID;
+import net.runelite.api.gameval.VarPlayerID;
 import net.runelite.api.widgets.Widget;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
@@ -100,6 +101,7 @@ public class GimHubPlugin extends Plugin {
 		dataManager.getPosition().update(new LocationState(playerName, worldPoint));
 
 		dataManager.getRunePouch().update(new RunePouchState(playerName, client));
+		dataManager.getQuiver().update(new QuiverState(playerName, client, itemManager));
 	}
 
 	@Schedule(
@@ -112,6 +114,20 @@ public class GimHubPlugin extends Plugin {
 		String playerName = client.getLocalPlayer().getName();
 		dataManager.getQuests().update(new QuestState(playerName, client));
 		dataManager.getAchievementDiary().update(new AchievementDiaryState(playerName, client));
+	}
+
+	@Subscribe
+	public void onVarbitChanged(VarbitChanged event)
+	{
+		if (doNotUseThisData())
+			return;
+
+		final int varpId = event.getVarpId();
+		if (varpId == VarPlayerID.DIZANAS_QUIVER_TEMP_AMMO || varpId == VarPlayerID.DIZANAS_QUIVER_TEMP_AMMO_AMOUNT)
+		{
+			String playerName = client.getLocalPlayer().getName();
+			dataManager.getQuiver().update(new QuiverState(playerName, client, itemManager));
+		}
 	}
 
 	@Subscribe
