@@ -26,9 +26,6 @@ public class CollectionLogWidgetSubscriber {
     private Client client;
 
     @Inject
-    private DataManager dataManager;
-
-    @Inject
     private PlayerDataService playerDataService;
 
     private boolean autoRetrieval = false;

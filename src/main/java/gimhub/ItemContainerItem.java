@@ -24,4 +24,12 @@ public class ItemContainerItem {
         ItemContainerItem other = (ItemContainerItem) o;
         return other.id == id && other.quantity == quantity;
     }
+
+    @Override
+    public int hashCode() {
+        int result = Integer.hashCode(id);
+        result = 31 * result + Integer.hashCode(quantity);
+        
+        return result;
+    }
 }

@@ -33,31 +33,46 @@ import java.util.regex.Pattern;
 public class GimHubPlugin extends Plugin {
 	@Inject
 	private Client client;
-	@Inject
-	private GimHubConfig config;
+
 	@Inject
 	private DataManager dataManager;
+
 	@Inject
 	private ItemManager itemManager;
+
 	@Inject
     ClientThread clientThread;
+
     @Inject
     private PlayerDataService playerDataService;
+
     @Inject
     private ManualUpdateButtonManager manualUpdateButtonManager;
+
     @Inject
     private CollectionLogWidgetSubscriber collectionLogWidgetSubscriber;
+
 	@Inject
     private ItemNameLookup itemNameLookup;
+
 	private int itemsDeposited = 0;
+
 	private static final int SECONDS_BETWEEN_UPLOADS = 1;
+
 	private static final int SECONDS_BETWEEN_INFREQUENT_DATA_CHANGES = 60;
+
 	private static final int DEPOSIT_ITEM = 12582914;
+
 	private static final int DEPOSIT_INVENTORY = 12582916;
+
 	private static final int DEPOSIT_EQUIPMENT = 12582918;
+
 	private static final int CHATBOX_ENTERED = 681;
+
 	private static final int GROUP_STORAGE_LOADER = 293;
+
 	private static final Pattern COLLECTION_LOG_ITEM_PATTERN = Pattern.compile("New item added to your collection log: (.*)");
+
 	private boolean notificationStarted = false;
 
 	@Override
@@ -242,7 +257,6 @@ public class GimHubPlugin extends Plugin {
             Integer itemId = itemNameLookup.findItemId(itemName);
             if (itemId != null) {
                 playerDataService.storeClogItem(itemId, 1);
-                return;
             }
         } catch (Exception ignored) {
             //

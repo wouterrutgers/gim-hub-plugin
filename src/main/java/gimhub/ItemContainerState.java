@@ -14,7 +14,7 @@ import java.util.Map;
 @Slf4j
 public class ItemContainerState implements ConsumableState {
     private final List<ItemContainerItem> items;
-    private transient final String playerName;
+    private final String playerName;
 
     public ItemContainerState(String playerName, ItemContainer container, ItemManager itemManager) {
         this.playerName = playerName;
@@ -34,7 +34,8 @@ public class ItemContainerState implements ConsumableState {
         items = new ArrayList<>();
         for (int i = 0; i < containerSize; i++) {
             Item item = container.getItem(i);
-            if (!isItemValid(item, itemManager)) {
+
+            if (item == null || !isItemValid(item, itemManager)) {
                 items.add(new ItemContainerItem(0, 0));
             } else {
                 items.add(new ItemContainerItem(itemManager.canonicalize(item.getId()), item.getQuantity()));
@@ -54,17 +55,19 @@ public class ItemContainerState implements ConsumableState {
         Map<Integer, ItemContainerItem> otherItems = itemsToAdd.getItemMap();
         List<ItemContainerItem> result = new ArrayList<>();
 
-        for (Integer itemId : thisItems.keySet()) {
-            ItemContainerItem item = thisItems.get(itemId);
+        for (Map.Entry<Integer, ItemContainerItem> entry : thisItems.entrySet()) {
+            Integer itemId = entry.getKey();
+            ItemContainerItem item = entry.getValue();
             if (otherItems.containsKey(itemId)) {
                 item.addQuantity(otherItems.get(itemId).getQuantity());
             }
             result.add(item);
         }
 
-        for (Integer itemId : otherItems.keySet()) {
+        for (Map.Entry<Integer, ItemContainerItem> entry : otherItems.entrySet()) {
+            Integer itemId = entry.getKey();
             if (!thisItems.containsKey(itemId)) {
-                result.add(otherItems.get(itemId));
+                result.add(entry.getValue());
             }
         }
 
@@ -78,8 +81,9 @@ public class ItemContainerState implements ConsumableState {
         Map<Integer, ItemContainerItem> otherItems = other.getItemMap();
         List<ItemContainerItem> result = new ArrayList<>();
 
-        for (Integer itemId : otherItems.keySet()) {
-            ItemContainerItem otherItem = otherItems.get(itemId);
+        for (Map.Entry<Integer, ItemContainerItem> entry : otherItems.entrySet()) {
+            Integer itemId = entry.getKey();
+            ItemContainerItem otherItem = entry.getValue();
             if (otherItem.getId() == 0) continue;
 
             if (thisItems.containsKey(itemId)) {
@@ -157,5 +161,10 @@ public class ItemContainerState implements ConsumableState {
         }
 
         return true;
+    }
+
+    @Override
+    public int hashCode() {
+        return items.hashCode();
     }
 }

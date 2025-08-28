@@ -3,7 +3,7 @@ package gimhub;
 import net.runelite.api.Client;
 
 public class AchievementDiaryState implements ConsumableState {
-    private final transient String playerName;
+    private final String playerName;
     private static final int[] diaryVarbits = new int[]{
             /* Karamja Easy */
             3566, 3567, 3568, 3569, 3570, 3571, 3572, 3573, 3574, 3575,
@@ -74,5 +74,15 @@ public class AchievementDiaryState implements ConsumableState {
         }
 
         return true;
+    }
+
+    @Override
+    public int hashCode() {
+        int result = 1;
+        for (int value : diaryVarValues) {
+            result = 31 * result + value;
+        }
+        
+        return result;
     }
 }
