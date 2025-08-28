@@ -1,15 +1,15 @@
 package gimhub;
 
+import java.util.*;
+import java.util.stream.Collectors;
 import net.runelite.api.Client;
 import net.runelite.api.Quest;
 
-import java.util.*;
-import java.util.stream.Collectors;
-
 public class QuestState implements ConsumableState {
     private final Map<Integer, net.runelite.api.QuestState> questStateMap;
-    private transient final String playerName;
-    private List<Integer> sortedQuestIds = Arrays.stream(Quest.values()).map(Quest::getId).sorted().collect(Collectors.toList());
+    private final transient String playerName;
+    private List<Integer> sortedQuestIds =
+            Arrays.stream(Quest.values()).map(Quest::getId).sorted().collect(Collectors.toList());
 
     public QuestState(String playerName, Client client) {
         this.playerName = playerName;

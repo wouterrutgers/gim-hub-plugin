@@ -10,32 +10,24 @@ public interface GimHubConfig extends Config {
     @ConfigSection(
             name = "Group config",
             description = "Enter the group details you created on the website here.",
-            position = 0
-    )
+            position = 0)
     String GROUP_SECTION = "GroupSection";
 
     @ConfigSection(
             name = "Self hosted config",
             description = "Configure your connection to a self hosted server.",
             position = 1,
-            closedByDefault = true
-    )
+            closedByDefault = true)
     String CONNECTION_SECTION = "ConnectionSection";
 
-    @ConfigSection(
-            name = "Debug",
-            description = "Developer options",
-            position = 2,
-            closedByDefault = true
-    )
-        String DEBUG_SECTION = "DebugSection";
+    @ConfigSection(name = "Debug", description = "Developer options", position = 2, closedByDefault = true)
+    String DEBUG_SECTION = "DebugSection";
 
     @ConfigItem(
             keyName = "groupName",
             name = "Group name (on the website)",
             description = "This is the group name you provided on the website when creating your group.",
-            section = GROUP_SECTION
-    )
+            section = GROUP_SECTION)
     default String groupName() {
         return "";
     }
@@ -43,10 +35,10 @@ public interface GimHubConfig extends Config {
     @ConfigItem(
             keyName = "groupToken",
             name = "Group token",
-            description = "Secret token for your group provided by the website. Get this from the member which created the group on the site, or create a new one by visiting the site.",
+            description =
+                    "Secret token for your group provided by the website. Get this from the member which created the group on the site, or create a new one by visiting the site.",
             secret = true,
-            section = GROUP_SECTION
-    )
+            section = GROUP_SECTION)
     default String authorizationToken() {
         return "";
     }
@@ -54,9 +46,9 @@ public interface GimHubConfig extends Config {
     @ConfigItem(
             keyName = "baseUrlOverride",
             name = "Server base URL override (leave blank to use public server)",
-            description = "Overrides the public server URL used to send data. Only change this if you are hosting your own server.",
-            section = CONNECTION_SECTION
-    )
+            description =
+                    "Overrides the public server URL used to send data. Only change this if you are hosting your own server.",
+            section = CONNECTION_SECTION)
     default String baseUrlOverride() {
         return "";
     }
@@ -65,7 +57,8 @@ public interface GimHubConfig extends Config {
             keyName = "httpDebugLogging",
             name = "Enable HTTP debug logging",
             description = "Logs full HTTP requests and responses.",
-            section = DEBUG_SECTION
-    )
-    default boolean httpDebugLogging() { return false; }
+            section = DEBUG_SECTION)
+    default boolean httpDebugLogging() {
+        return false;
+    }
 }

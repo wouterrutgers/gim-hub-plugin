@@ -15,10 +15,22 @@ public class RunePouchState implements ConsumableState {
     public RunePouchState(String playerName, Client client) {
         this.playerName = playerName;
         final EnumComposition runepouchEnum = client.getEnum(EnumID.RUNEPOUCH_RUNE);
-        rune1 = itemForRune(client.getVarbitValue(VarbitID.RUNE_POUCH_TYPE_1), client.getVarbitValue(VarbitID.RUNE_POUCH_QUANTITY_1), runepouchEnum);
-        rune2 = itemForRune(client.getVarbitValue(VarbitID.RUNE_POUCH_TYPE_2), client.getVarbitValue(VarbitID.RUNE_POUCH_QUANTITY_2), runepouchEnum);
-        rune3 = itemForRune(client.getVarbitValue(VarbitID.RUNE_POUCH_TYPE_3), client.getVarbitValue(VarbitID.RUNE_POUCH_QUANTITY_3), runepouchEnum);
-        rune4 = itemForRune(client.getVarbitValue(VarbitID.RUNE_POUCH_TYPE_4), client.getVarbitValue(VarbitID.RUNE_POUCH_QUANTITY_4), runepouchEnum);
+        rune1 = itemForRune(
+                client.getVarbitValue(VarbitID.RUNE_POUCH_TYPE_1),
+                client.getVarbitValue(VarbitID.RUNE_POUCH_QUANTITY_1),
+                runepouchEnum);
+        rune2 = itemForRune(
+                client.getVarbitValue(VarbitID.RUNE_POUCH_TYPE_2),
+                client.getVarbitValue(VarbitID.RUNE_POUCH_QUANTITY_2),
+                runepouchEnum);
+        rune3 = itemForRune(
+                client.getVarbitValue(VarbitID.RUNE_POUCH_TYPE_3),
+                client.getVarbitValue(VarbitID.RUNE_POUCH_QUANTITY_3),
+                runepouchEnum);
+        rune4 = itemForRune(
+                client.getVarbitValue(VarbitID.RUNE_POUCH_TYPE_4),
+                client.getVarbitValue(VarbitID.RUNE_POUCH_QUANTITY_4),
+                runepouchEnum);
     }
 
     private ItemContainerItem itemForRune(int runeId, int amount, EnumComposition runepouchEnum) {
@@ -28,10 +40,10 @@ public class RunePouchState implements ConsumableState {
     @Override
     public Object get() {
         return new int[] {
-                rune1.getId(), rune1.getQuantity(),
-                rune2.getId(), rune2.getQuantity(),
-                rune3.getId(), rune3.getQuantity(),
-                rune4.getId(), rune4.getQuantity()
+            rune1.getId(), rune1.getQuantity(),
+            rune2.getId(), rune2.getQuantity(),
+            rune3.getId(), rune3.getQuantity(),
+            rune4.getId(), rune4.getQuantity()
         };
     }
 
@@ -46,6 +58,9 @@ public class RunePouchState implements ConsumableState {
         if (!(o instanceof RunePouchState)) return false;
         RunePouchState other = (RunePouchState) o;
 
-        return rune1.equals(other.rune1) && rune2.equals(other.rune2) && rune3.equals(other.rune3) && rune4.equals(other.rune4);
+        return rune1.equals(other.rune1)
+                && rune2.equals(other.rune2)
+                && rune3.equals(other.rune3)
+                && rune4.equals(other.rune4);
     }
 }

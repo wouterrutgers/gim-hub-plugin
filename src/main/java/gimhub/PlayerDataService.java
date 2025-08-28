@@ -1,14 +1,13 @@
 package gimhub;
 
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import javax.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.GameState;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.client.eventbus.Subscribe;
-
-import javax.inject.Singleton;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
 
 @Slf4j
 @Singleton

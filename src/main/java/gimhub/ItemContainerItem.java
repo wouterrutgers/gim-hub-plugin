@@ -5,6 +5,7 @@ import lombok.Getter;
 public class ItemContainerItem {
     @Getter
     private final int id;
+
     @Getter
     private int quantity;
 
@@ -29,7 +30,7 @@ public class ItemContainerItem {
     public int hashCode() {
         int result = Integer.hashCode(id);
         result = 31 * result + Integer.hashCode(quantity);
-        
+
         return result;
     }
 }

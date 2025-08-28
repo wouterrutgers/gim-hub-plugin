@@ -2,6 +2,12 @@ package gimhub;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
+import java.io.IOException;
+import java.lang.reflect.Type;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import javax.inject.Inject;
+import javax.inject.Singleton;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.Call;
@@ -9,17 +15,9 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
-import java.io.IOException;
-import java.lang.reflect.Type;
-import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-
 /**
- * Lightweight name -> id lookup using RuneLite's public item cache.
- * Fetches id->name and noted->unnoted mappings and builds a case-sensitive
- * name->id map excluding noted variants.
+ * Lightweight name -> id lookup using RuneLite's public item cache. Fetches id->name and noted->unnoted mappings and
+ * builds a case-sensitive name->id map excluding noted variants.
  */
 @Slf4j
 @Singleton
