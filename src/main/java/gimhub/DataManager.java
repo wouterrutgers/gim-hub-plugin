@@ -1,6 +1,5 @@
 package gimhub;
 
-import com.google.gson.Gson;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Map;
@@ -10,8 +9,6 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
 import net.runelite.api.WorldType;
-import net.runelite.client.RuneLiteProperties;
-import okhttp3.*;
 
 @Slf4j
 @Singleton
@@ -23,17 +20,11 @@ public class DataManager {
     GimHubConfig config;
 
     @Inject
-    private Gson gson;
-
-    @Inject
-    private OkHttpClient okHttpClient;
+    private HttpRequestService httpRequestService;
 
     @Inject
     private PlayerDataService playerDataService;
 
-    private static final String PUBLIC_BASE_URL = "https://gim-hub.com";
-    private static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
-    private static final String USER_AGENT = "GIM-hub/RuneLite/" + RuneLiteProperties.getVersion();
     private boolean isMemberInGroup = false;
     private int skipNextNAttempts = 0;
 
@@ -129,40 +120,16 @@ public class DataManager {
             playerDataService.writeClogItems(updates);
 
             if (updates.size() > 1) {
-                try {
-                    String requestJson = gson.toJson(updates);
-                    RequestBody body = RequestBody.create(JSON, requestJson);
-                    Request request = new Request.Builder()
-                            .url(url)
-                            .header("Authorization", groupToken)
-                            .header("User-Agent", USER_AGENT)
-                            .post(body)
-                            .build();
-                    Call call = okHttpClient.newCall(request);
+                HttpRequestService.HttpResponse response = httpRequestService.post(url, groupToken, updates);
 
-                    try (Response response = call.execute()) {
-                        String respText = readBodySafe(response);
-                        log.debug(
-                                "POST {}\nreq: {}\nresp({}): {}",
-                                url,
-                                truncate(requestJson, 2000),
-                                response.code(),
-                                truncate(respText, 2000));
-                        if (!response.isSuccessful()) {
-                            skipNextNAttempts = 10;
-                            if (response.code() == 401) {
-                                isMemberInGroup = false;
-                            }
-
-                            restoreStateIfNothingUpdated();
-                        } else {
-                            playerDataService.clearClogItems();
-                        }
-                    }
-                } catch (Exception ex) {
-                    log.warn("POST {} failed: {}", url, ex.toString());
+                if (!response.isSuccessful()) {
                     skipNextNAttempts = 10;
+                    if (response.getCode() == 401) {
+                        isMemberInGroup = false;
+                    }
                     restoreStateIfNothingUpdated();
+                } else {
+                    playerDataService.clearClogItems();
                 }
             } else {
                 log.debug("Skip POST: no changes to send (fields={})", updates.size());
@@ -174,22 +141,9 @@ public class DataManager {
         String url = amIMemberOfGroupUrl(playerName);
         if (url == null) return false;
 
-        Request request = new Request.Builder()
-                .url(url)
-                .header("Authorization", groupToken)
-                .header("User-Agent", USER_AGENT)
-                .get()
-                .build();
-        Call call = okHttpClient.newCall(request);
+        HttpRequestService.HttpResponse response = httpRequestService.get(url, groupToken);
 
-        try (Response response = call.execute()) {
-            String respText = readBodySafe(response);
-            log.debug("GET {} -> {}\nresp: {}", url, response.code(), truncate(respText, 2000));
-            return response.isSuccessful();
-        } catch (Exception ex) {
-            log.warn("GET {} failed: {}", url, ex.toString());
-            return false;
-        }
+        return response.isSuccessful();
     }
 
     // NOTE: These states should only be restored if a new update did not come in at some point before calling this
@@ -210,14 +164,6 @@ public class DataManager {
         achievementDiary.restoreState();
     }
 
-    private String baseUrl() {
-        String baseUrlOverride = config.baseUrlOverride().trim();
-        if (!baseUrlOverride.isEmpty()) {
-            return baseUrlOverride;
-        }
-        return PUBLIC_BASE_URL;
-    }
-
     private String groupName() {
         String groupName = config.groupName().trim();
         if (groupName.isEmpty()) {
@@ -228,7 +174,7 @@ public class DataManager {
     }
 
     private String getUpdateGroupMemberUrl() {
-        String baseUrl = baseUrl();
+        String baseUrl = httpRequestService.getBaseUrl();
         String groupName = groupName();
 
         if (baseUrl == null || groupName == null) return null;
@@ -237,12 +183,12 @@ public class DataManager {
     }
 
     private String amIMemberOfGroupUrl(String playerName) {
-        String baseUrl = baseUrl();
+        String baseUrl = httpRequestService.getBaseUrl();
         String groupName = groupName();
 
         if (baseUrl == null || groupName == null) return null;
 
-        return String.format("%s/api/group/%s/am-i-in-group?member_name=%s", baseUrl, groupName, playerName);
+        return String.format("%s/api/group/%s/am-i-in-group?name=%s", baseUrl, groupName, playerName);
     }
 
     private boolean isBadWorldType() {
@@ -259,20 +205,5 @@ public class DataManager {
         }
 
         return false;
-    }
-
-    private static String truncate(String s, int max) {
-        if (s == null) return "";
-        if (s.length() <= max) return s;
-        return s.substring(0, max) + "...(" + s.length() + " chars)";
-    }
-
-    private static String readBodySafe(Response response) {
-        try {
-            ResponseBody rb = response.body();
-            return rb != null ? rb.string() : "<no body>";
-        } catch (Exception e) {
-            return "<unavailable: " + e.getMessage() + ">";
-        }
     }
 }

@@ -60,7 +60,9 @@ public class SkillState implements ConsumableState {
         SkillState other = (SkillState) o;
         for (Skill skill : Skill.values()) {
             String skillName = skill.getName();
-            if (!skillXpMap.get(skillName).equals(other.skillXpMap.get(skillName))) return false;
+            if (!skillXpMap.get(skillName).equals(other.skillXpMap.get(skillName))) {
+                return false;
+            }
         }
 
         return true;

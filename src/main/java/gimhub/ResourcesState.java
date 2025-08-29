@@ -68,6 +68,7 @@ public class ResourcesState implements ConsumableState {
         if (!(o instanceof ResourcesState)) return false;
 
         ResourcesState other = (ResourcesState) o;
+
         return other.world == world
                 && other.hitpoints.equals(hitpoints)
                 && other.prayer.equals(prayer)
