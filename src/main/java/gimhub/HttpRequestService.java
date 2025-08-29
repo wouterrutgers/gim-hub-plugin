@@ -25,14 +25,11 @@ public class HttpRequestService {
     private Gson gson;
 
     public HttpResponse get(String url, String authToken) {
-        Request.Builder requestBuilder = new Request.Builder()
-                .url(url)
-                .header("Authorization", authToken)
-                .header("User-Agent", USER_AGENT)
-                .get();
+        Request.Builder requestBuilder =
+                new Request.Builder().url(url).header("User-Agent", USER_AGENT).get();
 
         if (url.startsWith(getBaseUrl())) {
-            requestBuilder.header("Accept", "application/json");
+            requestBuilder.header("Authorization", authToken).header("Accept", "application/json");
         }
 
         Request request = requestBuilder.build();
@@ -44,14 +41,11 @@ public class HttpRequestService {
         String requestJson = gson.toJson(requestBody);
         RequestBody body = RequestBody.create(JSON, requestJson);
 
-        Request.Builder requestBuilder = new Request.Builder()
-                .url(url)
-                .header("Authorization", authToken)
-                .header("User-Agent", USER_AGENT)
-                .post(body);
+        Request.Builder requestBuilder =
+                new Request.Builder().url(url).header("User-Agent", USER_AGENT).post(body);
 
         if (url.startsWith(getBaseUrl())) {
-            requestBuilder.header("Accept", "application/json");
+            requestBuilder.header("Authorization", authToken).header("Accept", "application/json");
         }
 
         Request request = requestBuilder.build();
