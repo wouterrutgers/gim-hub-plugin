@@ -38,7 +38,7 @@ public class GimHubPlugin extends Plugin {
     private ItemManager itemManager;
 
     @Inject
-    ClientThread clientThread;
+    private ClientThread clientThread;
 
     @Inject
     private PlayerDataService playerDataService;
