@@ -85,7 +85,7 @@ public class DataManager {
                 boolean isMember = checkIfPlayerIsInGroup(groupToken, playerName);
 
                 if (!isMember) {
-                    log.info("Skip POST: not a member (401/forbidden). Backing off.");
+                    log.debug("Skip POST: not a member (401/forbidden). Backing off.");
                     // NOTE: We don't really need to check this everytime I don't think.
                     // Waiting for a game state event is not what we really want either
                     // since membership can change at anytime from the website.
@@ -97,7 +97,7 @@ public class DataManager {
 
             String url = getUpdateGroupMemberUrl();
             if (url == null) {
-                log.info("Skip POST: URL is null (check base URL and group name).");
+                log.debug("Skip POST: URL is null (check base URL and group name).");
                 return;
             }
 
@@ -132,7 +132,7 @@ public class DataManager {
                     playerDataService.clearClogItems();
                 }
             } else {
-                log.info("Skip POST: no changes to send (fields={})", updates.size());
+                log.debug("Skip POST: no changes to send (fields={})", updates.size());
             }
         }
     }

@@ -65,16 +65,12 @@ public class HttpRequestService {
         try (Response response = call.execute()) {
             String responseBody = readBodySafe(response);
 
-            if (config.httpDebugLogging()) {
-                logRequest(method, url, requestBody, response, responseBody);
-            }
+            logRequest(method, url, requestBody, response, responseBody);
 
             return new HttpResponse(response.isSuccessful(), response.code(), responseBody);
 
         } catch (IOException ex) {
-            if (config.httpDebugLogging()) {
-                log.warn("{} {} failed: {}", method, url, ex.toString());
-            }
+            log.warn("{} {} failed: {}", method, url, ex.toString());
 
             return new HttpResponse(false, -1, ex.getMessage());
         }
@@ -82,9 +78,9 @@ public class HttpRequestService {
 
     private void logRequest(String method, String url, String requestBody, Response response, String responseBody) {
         if ("GET".equals(method)) {
-            log.info("GET {} -> {}\nresp: {}", url, response.code(), truncate(responseBody, 2000));
+            log.debug("GET {} -> {}\nresp: {}", url, response.code(), truncate(responseBody, 2000));
         } else if ("POST".equals(method)) {
-            log.info(
+            log.debug(
                     "POST {}\nreq: {}\nresp({}): {}",
                     url,
                     truncate(requestBody, 2000),
