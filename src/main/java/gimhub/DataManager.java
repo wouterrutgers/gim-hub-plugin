@@ -80,12 +80,12 @@ public class DataManager {
         if (!groupToken.isEmpty()) {
             // NOTE: We do this check so characters who are not authorized won't waste time serializing and sending
             // their data. It is OK if the user switches characters or is removed from the group since the update call
-            // below will return a 401 where we set isMemberOfGroup = false again.
+            // below will return a 422 where we set isMemberOfGroup = false again.
             if (!isMemberInGroup) {
                 boolean isMember = checkIfPlayerIsInGroup(groupToken, playerName);
 
                 if (!isMember) {
-                    log.debug("Skip POST: not a member (401/forbidden). Backing off.");
+                    log.debug("Skip POST: not a member (422/unprocessable entity). Backing off.");
                     // NOTE: We don't really need to check this everytime I don't think.
                     // Waiting for a game state event is not what we really want either
                     // since membership can change at anytime from the website.
@@ -124,7 +124,7 @@ public class DataManager {
 
                 if (!response.isSuccessful()) {
                     skipNextNAttempts = 10;
-                    if (response.getCode() == 401) {
+                    if (response.getCode() == 422) {
                         isMemberInGroup = false;
                     }
                     restoreStateIfNothingUpdated();
