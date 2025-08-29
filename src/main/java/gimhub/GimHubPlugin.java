@@ -44,9 +44,6 @@ public class GimHubPlugin extends Plugin {
     private PlayerDataService playerDataService;
 
     @Inject
-    private ManualUpdateButtonManager manualUpdateButtonManager;
-
-    @Inject
     private CollectionLogWidgetSubscriber collectionLogWidgetSubscriber;
 
     @Inject
@@ -75,7 +72,6 @@ public class GimHubPlugin extends Plugin {
 
     @Override
     protected void startUp() throws Exception {
-        manualUpdateButtonManager.startUp();
         collectionLogWidgetSubscriber.startUp();
         itemNameLookup.startUp();
         log.info("GIM hub started!");
@@ -83,7 +79,6 @@ public class GimHubPlugin extends Plugin {
 
     @Override
     protected void shutDown() throws Exception {
-        manualUpdateButtonManager.shutDown();
         collectionLogWidgetSubscriber.shutDown();
         itemNameLookup.shutDown();
         log.info("GIM hub stopped!");
