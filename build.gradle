@@ -1,6 +1,5 @@
 plugins {
     id 'java'
-    id 'com.diffplug.spotless' version '5.2.0'
 }
 
 repositories {
@@ -59,15 +58,4 @@ tasks.register('shadowJar', Jar) {
     group = BasePlugin.BUILD_GROUP
     archiveClassifier.set('shadow')
     archiveFileName.set("${rootProject.name}-${project.version}-all.jar")
-}
-
-spotless {
-    java {
-        importOrder()
-        palantirJavaFormat('2.73.0').formatJavadoc(true)
-        removeUnusedImports()
-        trimTrailingWhitespace()
-        endWithNewline()
-        formatAnnotations()
-    }
 }
