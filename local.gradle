@@ -1,0 +1,19 @@
+plugins {
+    id 'java'
+    id 'com.diffplug.spotless' version '7.+'
+}
+
+repositories {
+    mavenCentral()
+}
+
+spotless {
+    java {
+        importOrder()
+        palantirJavaFormat('2.73.0').formatJavadoc(true)
+        removeUnusedImports()
+        trimTrailingWhitespace()
+        endWithNewline()
+        formatAnnotations()
+    }
+}
