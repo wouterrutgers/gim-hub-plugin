@@ -1,13 +1,13 @@
 # 🏆 GIM Hub
 
-<div align="center">
-  <img alt="GIM Hub Logo" src="logo.png" width="400"/>
+<div style="text-align: center;">
+  <img alt="GIM Hub Logo" src="logo-full.webp" width="400"/>
   
   **A real-time dashboard for Old School RuneScape Group Ironman teams**
   
   Track your team's progress and view member locations with live data streaming from RuneLite.
   
-  🌐 **[Visit GIM Hub →](https://gim-hub.com)**
+  **🌐 [Visit GIM Hub](https://gim-hub.com)**
 </div>
 
 ## ✨ Features
@@ -54,10 +54,12 @@
    - Search for "GIM Hub" and install
 
 2. **Configure your team**
-   - Create your group on [gim-hub.com](https://gim-hub.com)
+   - Create your group on the GIM Hub website
    - Copy your unique group token
-   - In RuneLite, open the GIM Hub plugin settings
+   - In RuneLite, open the "GIM Hub" plugin settings
    - Enter your group name and group token
+   - Open the "Self Hosted Config" section
+   - Add the URL: `https://gim-hub.com` (no trailing slash!)
 
 3. **Start tracking**
    - The plugin automatically streams your data
@@ -66,3 +68,7 @@
 
 <img alt="RuneLite Plugin Configuration" src="plugin-screenshot.png" width="300"/>
 <em>Plugin configuration in RuneLite</em>
+
+## 🏠 Self-hosting
+
+Prefer to run your own instance? See the self-hosting guide: [self-host.md](https://github.com/wouterrutgers/gim-hub.com/blob/master/self-host.md).
