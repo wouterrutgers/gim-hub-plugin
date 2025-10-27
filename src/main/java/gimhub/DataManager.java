@@ -23,7 +23,7 @@ public class DataManager {
     private HttpRequestService httpRequestService;
 
     @Inject
-    private PlayerDataService playerDataService;
+    private CollectionLogManager collectionLogManager;
 
     private boolean isMemberInGroup = false;
     private int skipNextNAttempts = 0;
@@ -117,7 +117,7 @@ public class DataManager {
             deposited.consumeState(updates);
             seedVault.consumeState(updates);
             achievementDiary.consumeState(updates);
-            playerDataService.writeClogItems(updates);
+            collectionLogManager.consumeClogItems(updates);
 
             if (updates.size() > 1) {
                 HttpRequestService.HttpResponse response = httpRequestService.post(url, groupToken, updates);
@@ -129,7 +129,7 @@ public class DataManager {
                     }
                     restoreStateIfNothingUpdated();
                 } else {
-                    playerDataService.clearClogItems();
+                    collectionLogManager.clearClogItems();
                 }
             } else {
                 log.debug("Skip POST: no changes to send (fields={})", updates.size());
@@ -188,7 +188,7 @@ public class DataManager {
 
         if (baseUrl == null || groupName == null) return null;
 
-        return String.format("%s/api/group/%s/am-i-in-group?name=%s", baseUrl, groupName, playerName);
+        return String.format("%s/api/group/%s/am-i-in-group?member_name=%s", baseUrl, groupName, playerName);
     }
 
     private boolean isBadWorldType() {

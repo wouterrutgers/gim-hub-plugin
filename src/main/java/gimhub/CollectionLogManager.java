@@ -11,7 +11,7 @@ import net.runelite.client.eventbus.Subscribe;
 
 @Slf4j
 @Singleton
-public class PlayerDataService {
+public class CollectionLogManager {
     // item id -> quantity
     private final Map<Integer, Integer> clogItems = new HashMap<>();
 
@@ -20,9 +20,8 @@ public class PlayerDataService {
         clogItems.put(itemId, quantity);
     }
 
-    public synchronized void writeClogItems(Map<String, Object> updates) {
+    public synchronized void consumeClogItems(Map<String, Object> updates) {
         if (clogItems.isEmpty()) return;
-        // Send collection log entries as an id->quantity map under 'collection_log'
         updates.put("collection_log", new HashMap<>(clogItems));
     }
 

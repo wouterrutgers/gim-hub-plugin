@@ -2,8 +2,6 @@ package gimhub;
 
 import com.google.inject.Provides;
 import java.time.temporal.ChronoUnit;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.*;
@@ -12,7 +10,6 @@ import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.*;
 import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.gameval.InventoryID;
-import net.runelite.api.gameval.VarClientID;
 import net.runelite.api.gameval.VarPlayerID;
 import net.runelite.api.widgets.Widget;
 import net.runelite.client.callback.ClientThread;
@@ -22,8 +19,6 @@ import net.runelite.client.game.ItemManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.task.Schedule;
-import net.runelite.client.util.Text;
-import org.apache.commons.lang3.StringUtils;
 
 @Slf4j
 @PluginDescriptor(name = "GIM hub")
@@ -41,13 +36,10 @@ public class GimHubPlugin extends Plugin {
     private ClientThread clientThread;
 
     @Inject
-    private PlayerDataService playerDataService;
+    private CollectionLogManager collectionLogManager;
 
     @Inject
     private CollectionLogWidgetSubscriber collectionLogWidgetSubscriber;
-
-    @Inject
-    private ItemNameLookup itemNameLookup;
 
     private int itemsDeposited = 0;
 
@@ -65,22 +57,15 @@ public class GimHubPlugin extends Plugin {
 
     private static final int GROUP_STORAGE_LOADER = 293;
 
-    private static final Pattern COLLECTION_LOG_ITEM_PATTERN =
-            Pattern.compile("New item added to your collection log: (.*)");
-
-    private boolean notificationStarted = false;
-
     @Override
     protected void startUp() throws Exception {
         collectionLogWidgetSubscriber.startUp();
-        itemNameLookup.startUp();
         log.info("GIM hub started!");
     }
 
     @Override
     protected void shutDown() throws Exception {
         collectionLogWidgetSubscriber.shutDown();
-        itemNameLookup.shutDown();
         log.info("GIM hub stopped!");
     }
 
@@ -195,49 +180,6 @@ public class GimHubPlugin extends Plugin {
     private void onInteractingChanged(InteractingChanged event) {
         if (event.getSource() != client.getLocalPlayer()) return;
         updateInteracting();
-    }
-
-    @Subscribe
-    private void onChatMessage(ChatMessage chatMessage) {
-        if (doNotUseThisData()) return;
-        if (chatMessage.getType() != ChatMessageType.GAMEMESSAGE) return;
-
-        Matcher matcher = COLLECTION_LOG_ITEM_PATTERN.matcher(chatMessage.getMessage());
-        if (matcher.find()) {
-            String itemName = Text.removeTags(matcher.group(1));
-            if (!StringUtils.isBlank(itemName)) {
-                handleNewCollectionItem(itemName.trim());
-            }
-        }
-    }
-
-    @Subscribe
-    public void onScriptPreFired(ScriptPreFired scriptPreFired) {
-        int scriptId = scriptPreFired.getScriptId();
-        if (scriptId == ScriptID.NOTIFICATION_START) {
-            notificationStarted = true;
-        } else if (scriptId == ScriptID.NOTIFICATION_DELAY) {
-            if (!notificationStarted) return;
-            String topText = client.getVarcStrValue(VarClientID.NOTIFICATION_TITLE);
-            if (topText.equalsIgnoreCase("Collection log")) {
-                String bottom = client.getVarcStrValue(VarClientID.NOTIFICATION_MAIN);
-                String cleaned = Text.removeTags(bottom);
-                String name = cleaned.replace("New item:", "").trim();
-                handleNewCollectionItem(name);
-            }
-            notificationStarted = false;
-        }
-    }
-
-    private void handleNewCollectionItem(String itemName) {
-        try {
-            Integer itemId = itemNameLookup.findItemId(itemName);
-            if (itemId != null) {
-                playerDataService.storeClogItem(itemId, 1);
-            }
-        } catch (Exception ignored) {
-            //
-        }
     }
 
     private void itemsMayHaveBeenDeposited() {

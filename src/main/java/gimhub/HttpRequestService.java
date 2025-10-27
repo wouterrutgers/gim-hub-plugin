@@ -25,14 +25,7 @@ public class HttpRequestService {
     private Gson gson;
 
     public HttpResponse get(String url, String authToken) {
-        Request.Builder requestBuilder =
-                new Request.Builder().url(url).header("User-Agent", USER_AGENT).get();
-
-        if (url.startsWith(getBaseUrl())) {
-            requestBuilder.header("Authorization", authToken).header("Accept", "application/json");
-        }
-
-        Request request = requestBuilder.build();
+        Request request = buildRequest(url, authToken).get().build();
 
         return executeRequest(request, "GET", url, null);
     }
@@ -41,16 +34,26 @@ public class HttpRequestService {
         String requestJson = gson.toJson(requestBody);
         RequestBody body = RequestBody.create(JSON, requestJson);
 
-        Request.Builder requestBuilder =
-                new Request.Builder().url(url).header("User-Agent", USER_AGENT).post(body);
-
-        if (url.startsWith(getBaseUrl())) {
-            requestBuilder.header("Authorization", authToken).header("Accept", "application/json");
-        }
-
-        Request request = requestBuilder.build();
+        Request request = buildRequest(url, authToken).post(body).build();
 
         return executeRequest(request, "POST", url, requestJson);
+    }
+
+    private Request.Builder buildRequest(String url, String authToken) {
+        Request.Builder requestBuilder = new Request.Builder().url(url).header("User-Agent", USER_AGENT);
+
+        if (isInternalUrl(url)) {
+            if (authToken != null && !authToken.trim().isEmpty()) {
+                requestBuilder.header("Authorization", authToken);
+            }
+            requestBuilder.header("Accept", "application/json");
+        }
+
+        return requestBuilder;
+    }
+
+    private boolean isInternalUrl(String url) {
+        return url.startsWith(getBaseUrl());
     }
 
     private HttpResponse executeRequest(Request request, String method, String url, String requestBody) {
@@ -58,46 +61,38 @@ public class HttpRequestService {
 
         try (Response response = call.execute()) {
             String responseBody = readBodySafe(response);
-
             logRequest(method, url, requestBody, response, responseBody);
-
             return new HttpResponse(response.isSuccessful(), response.code(), responseBody);
-
         } catch (IOException ex) {
             log.warn("{} {} failed: {}", method, url, ex.toString());
-
             return new HttpResponse(false, -1, ex.getMessage());
         }
     }
 
     private void logRequest(String method, String url, String requestBody, Response response, String responseBody) {
-        if ("GET".equals(method)) {
-            log.debug("GET {} -> {}\nresp: {}", url, response.code(), truncate(responseBody, 2000));
-        } else if ("POST".equals(method)) {
-            log.debug(
-                    "POST {}\nreq: {}\nresp({}): {}",
-                    url,
-                    truncate(requestBody, 2000),
-                    response.code(),
-                    truncate(responseBody, 2000));
+        if (!log.isDebugEnabled()) {
+            return;
+        }
+
+        switch (method) {
+            case "GET":
+                log.debug("GET {} -> {}\nResponse: {}", url, response.code(), responseBody);
+                break;
+            case "POST":
+                log.debug("POST {}\nRequest: {}\nResponse({}): {}", url, requestBody, response.code(), responseBody);
+                break;
+            default:
+                log.debug("{} {} -> {}\nResponse: {}", method, url, response.code(), responseBody);
         }
     }
 
     private static String readBodySafe(Response response) {
         try {
-            ResponseBody rb = response.body();
-
-            return rb != null ? rb.string() : "<no body>";
+            ResponseBody responseBody = response.body();
+            return responseBody != null ? responseBody.string() : "<no body>";
         } catch (Exception e) {
             return "<unavailable: " + e.getMessage() + ">";
         }
-    }
-
-    private static String truncate(String s, int max) {
-        if (s == null) return "";
-        if (s.length() <= max) return s;
-
-        return s.substring(0, max) + "...(" + s.length() + " chars)";
     }
 
     public String getBaseUrl() {
@@ -105,10 +100,10 @@ public class HttpRequestService {
         if (!baseUrlOverride.isEmpty()) {
             return baseUrlOverride;
         }
-
         return PUBLIC_BASE_URL;
     }
 
+    @Getter
     public static class HttpResponse {
         private final boolean successful;
         private final int code;
@@ -118,18 +113,6 @@ public class HttpRequestService {
             this.successful = successful;
             this.code = code;
             this.body = body;
-        }
-
-        public boolean isSuccessful() {
-            return successful;
-        }
-
-        public int getCode() {
-            return code;
-        }
-
-        public String getBody() {
-            return body;
         }
     }
 }

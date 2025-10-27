@@ -25,10 +25,10 @@ public class CollectionLogWidgetSubscriber {
     private Client client;
 
     @Inject
-    private PlayerDataService playerDataService;
+    private CollectionLogManager collectionLogManager;
 
-    private boolean autoRetrieval = false;
-    private int tickClogScriptFired = -1;
+    private boolean searchTriggered = false;
+    private int searchTriggeredTick = -1;
 
     public void startUp() {
         eventBus.register(this);
@@ -38,27 +38,24 @@ public class CollectionLogWidgetSubscriber {
         eventBus.unregister(this);
     }
 
-    private void reset() {
-        autoRetrieval = false;
-        tickClogScriptFired = -1;
-    }
-
     @Subscribe
     public void onGameStateChanged(GameStateChanged e) {
         GameState s = e.getGameState();
         if (s != GameState.HOPPING && s != GameState.LOGGED_IN) {
-            reset();
+            searchTriggered = false;
+            searchTriggeredTick = -1;
         }
     }
 
     @Subscribe
     public void onGameTick(GameTick tick) {
-        int t = client.getTickCount();
-        boolean fired = tickClogScriptFired != -1;
-        boolean bufferPassed = tickClogScriptFired + 2 < t;
-        if (fired && bufferPassed) {
-            tickClogScriptFired = -1;
-            autoRetrieval = false;
+        if (searchTriggeredTick != -1) {
+            int currentTick = client.getTickCount();
+
+            if (currentTick - searchTriggeredTick >= 500) {
+                searchTriggered = false;
+                searchTriggeredTick = -1;
+            }
         }
     }
 
@@ -66,14 +63,13 @@ public class CollectionLogWidgetSubscriber {
     public void onScriptPreFired(ScriptPreFired pre) {
         // Script 4100 fires when collection log items are enumerated via search
         if (pre.getScriptId() == 4100) {
-            tickClogScriptFired = client.getTickCount();
             // Arguments: [widgetId, itemId, qty]
             Object[] args = pre.getScriptEvent().getArguments();
             if (args != null && args.length >= 3) {
                 try {
                     int itemId = (int) args[1];
                     int quantity = (int) args[2];
-                    playerDataService.storeClogItem(itemId, quantity);
+                    collectionLogManager.storeClogItem(itemId, quantity);
                 } catch (Exception ignored) {
                     //
                 }
@@ -85,11 +81,12 @@ public class CollectionLogWidgetSubscriber {
     public void onScriptPostFired(ScriptPostFired post) {
         final int COLLECTION_LOG_SETUP = 7797;
         if (post.getScriptId() == COLLECTION_LOG_SETUP) {
-            if (autoRetrieval) return;
+            if (searchTriggered) return;
             boolean isAdventureLog = client.getVarbitValue(VarbitID.COLLECTION_POH_HOST_BOOK_OPEN) == 1;
             if (isAdventureLog) return;
 
-            autoRetrieval = true;
+            searchTriggered = true;
+            searchTriggeredTick = client.getTickCount();
             client.menuAction(-1, InterfaceID.Collection.SEARCH_TOGGLE, MenuAction.CC_OP, 1, -1, "Search", null);
             final int COLLECTION_INIT = 2240;
             client.runScript(COLLECTION_INIT);
