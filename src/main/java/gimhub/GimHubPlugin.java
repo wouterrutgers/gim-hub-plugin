@@ -14,6 +14,7 @@ import net.runelite.api.gameval.VarPlayerID;
 import net.runelite.api.widgets.Widget;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
+import net.runelite.client.config.RuneScapeProfileType;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.plugins.Plugin;
@@ -68,7 +69,10 @@ public class GimHubPlugin extends Plugin {
 
     @Schedule(period = SECONDS_BETWEEN_UPLOADS, unit = ChronoUnit.SECONDS, asynchronous = true)
     public void submitToApi() {
-        dataManager.submitToApi();
+        if (doNotUseThisData()) return;
+
+        String playerName = client.getLocalPlayer().getName();
+        dataManager.submitToApi(playerName);
     }
 
     @Schedule(period = SECONDS_BETWEEN_UPLOADS, unit = ChronoUnit.SECONDS)
@@ -110,6 +114,8 @@ public class GimHubPlugin extends Plugin {
 
     @Subscribe
     public void onGameTick(GameTick gameTick) {
+        if (doNotUseThisData()) return;
+
         --itemsDeposited;
         updateInteracting();
 
@@ -161,6 +167,8 @@ public class GimHubPlugin extends Plugin {
 
     @Subscribe
     private void onScriptPostFired(ScriptPostFired event) {
+        if (doNotUseThisData()) return;
+
         if (event.getScriptId() == SCRIPT_CHATBOX_ENTERED
                 && client.getWidget(InterfaceID.BankDepositbox.INVENTORY) != null) {
             itemsMayHaveBeenDeposited();
@@ -169,6 +177,8 @@ public class GimHubPlugin extends Plugin {
 
     @Subscribe
     private void onMenuOptionClicked(MenuOptionClicked event) {
+        if (doNotUseThisData()) return;
+
         final int param1 = event.getParam1();
         final MenuAction menuAction = event.getMenuAction();
         if (menuAction == MenuAction.CC_OP
@@ -181,6 +191,8 @@ public class GimHubPlugin extends Plugin {
 
     @Subscribe
     private void onInteractingChanged(InteractingChanged event) {
+        if (doNotUseThisData()) return;
+
         if (event.getSource() != client.getLocalPlayer()) return;
         updateInteracting();
     }
@@ -210,8 +222,14 @@ public class GimHubPlugin extends Plugin {
         dataManager.getStateRepository().getDeposited().update(deposited);
     }
 
+    /**
+     * A guard blocking client callbacks that may write invalid state, such as when the player is not logged in to a
+     * main-game profile.
+     */
     private boolean doNotUseThisData() {
-        return client.getGameState() != GameState.LOGGED_IN || client.getLocalPlayer() == null;
+        boolean isStandardProfile = RuneScapeProfileType.getCurrent(client) == RuneScapeProfileType.STANDARD;
+
+        return client.getGameState() != GameState.LOGGED_IN || client.getLocalPlayer() == null || !isStandardProfile;
     }
 
     @Provides

@@ -4,15 +4,12 @@ import java.util.HashMap;
 import java.util.Map;
 import javax.inject.Inject;
 import javax.inject.Singleton;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import net.runelite.api.Client;
 
 @Slf4j
 @Singleton
 public class DataManager {
-    @Inject
-    private Client client;
-
     @Inject
     private GimHubConfig config;
 
@@ -22,6 +19,7 @@ public class DataManager {
     @Inject
     private CollectionLogManager collectionLogManager;
 
+    @Getter
     @Inject
     private StateRepository stateRepository;
 
@@ -31,11 +29,9 @@ public class DataManager {
     private boolean isMemberInGroup = false;
     private int skipNextNAttempts = 0;
 
-    public void submitToApi() {
-        if (!canSubmit()) return;
+    public void submitToApi(String playerName) {
         if (skipNextNAttempts-- > 0) return;
 
-        String playerName = client.getLocalPlayer().getName();
         String groupToken = config.authorizationToken().trim();
 
         if (groupToken.isEmpty()) return;
@@ -57,12 +53,6 @@ public class DataManager {
         } else {
             log.debug("Skip POST: no changes to send (fields={})", updates.size());
         }
-    }
-
-    private boolean canSubmit() {
-        return client.getLocalPlayer() != null
-                && client.getLocalPlayer().getName() != null
-                && WorldTypeValidator.isValidWorldType(client.getWorldType());
     }
 
     private boolean ensureMembershipChecked(String groupToken, String playerName) {
@@ -115,9 +105,5 @@ public class DataManager {
         HttpRequestService.HttpResponse response = httpRequestService.get(url, groupToken);
 
         return response.isSuccessful();
-    }
-
-    public StateRepository getStateRepository() {
-        return stateRepository;
     }
 }
