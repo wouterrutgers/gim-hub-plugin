@@ -38,6 +38,7 @@ public class LocationState implements ConsumableState {
         if (!(o instanceof LocationState)) return false;
 
         LocationState other = (LocationState) o;
+
         return (x == other.x) && (y == other.y) && (plane == other.plane);
     }
 

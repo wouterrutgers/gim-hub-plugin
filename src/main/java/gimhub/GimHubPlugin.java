@@ -44,18 +44,15 @@ public class GimHubPlugin extends Plugin {
     private int itemsDeposited = 0;
 
     private static final int SECONDS_BETWEEN_UPLOADS = 1;
-
     private static final int SECONDS_BETWEEN_INFREQUENT_DATA_CHANGES = 60;
+    private static final int GAME_TICKS_FOR_DEPOSIT_DETECTION = 2;
 
-    private static final int DEPOSIT_ITEM = 12582914;
-
-    private static final int DEPOSIT_INVENTORY = 12582916;
-
-    private static final int DEPOSIT_EQUIPMENT = 12582918;
-
-    private static final int CHATBOX_ENTERED = 681;
-
-    private static final int GROUP_STORAGE_LOADER = 293;
+    private static final int WIDGET_DEPOSIT_ITEM_BUTTON = 12582914;
+    private static final int WIDGET_DEPOSIT_INVENTORY_BUTTON = 12582916;
+    private static final int WIDGET_DEPOSIT_EQUIPMENT_BUTTON = 12582918;
+    private static final int SCRIPT_CHATBOX_ENTERED = 681;
+    private static final int WIDGET_GROUP_STORAGE_LOADER_PARENT = 293;
+    private static final int WIDGET_GROUP_STORAGE_LOADER_TEXT_CHILD = 1;
 
     @Override
     protected void startUp() throws Exception {
@@ -79,22 +76,25 @@ public class GimHubPlugin extends Plugin {
         if (doNotUseThisData()) return;
         Player player = client.getLocalPlayer();
         String playerName = player.getName();
-        dataManager.getResources().update(new ResourcesState(playerName, client));
+        StateRepository states = dataManager.getStateRepository();
+
+        states.getResources().update(new ResourcesState(playerName, client));
 
         LocalPoint localPoint = player.getLocalLocation();
         WorldPoint worldPoint = WorldPoint.fromLocalInstance(client, localPoint);
-        dataManager.getPosition().update(new LocationState(playerName, worldPoint));
+        states.getPosition().update(new LocationState(playerName, worldPoint));
 
-        dataManager.getRunePouch().update(new RunePouchState(playerName, client));
-        dataManager.getQuiver().update(new QuiverState(playerName, client, itemManager));
+        states.getRunePouch().update(new RunePouchState(playerName, client));
+        states.getQuiver().update(new QuiverState(playerName, client, itemManager));
     }
 
     @Schedule(period = SECONDS_BETWEEN_INFREQUENT_DATA_CHANGES, unit = ChronoUnit.SECONDS)
     public void updateThingsThatDoNotChangeOften() {
         if (doNotUseThisData()) return;
         String playerName = client.getLocalPlayer().getName();
-        dataManager.getQuests().update(new QuestState(playerName, client));
-        dataManager.getAchievementDiary().update(new AchievementDiaryState(playerName, client));
+        StateRepository states = dataManager.getStateRepository();
+        states.getQuests().update(new QuestState(playerName, client));
+        states.getAchievementDiary().update(new AchievementDiaryState(playerName, client));
     }
 
     @Subscribe
@@ -104,7 +104,7 @@ public class GimHubPlugin extends Plugin {
         final int varpId = event.getVarpId();
         if (varpId == VarPlayerID.DIZANAS_QUIVER_TEMP_AMMO || varpId == VarPlayerID.DIZANAS_QUIVER_TEMP_AMMO_AMOUNT) {
             String playerName = client.getLocalPlayer().getName();
-            dataManager.getQuiver().update(new QuiverState(playerName, client, itemManager));
+            dataManager.getStateRepository().getQuiver().update(new QuiverState(playerName, client, itemManager));
         }
     }
 
@@ -113,9 +113,10 @@ public class GimHubPlugin extends Plugin {
         --itemsDeposited;
         updateInteracting();
 
-        Widget groupStorageLoaderText = client.getWidget(GROUP_STORAGE_LOADER, 1);
+        Widget groupStorageLoaderText =
+                client.getWidget(WIDGET_GROUP_STORAGE_LOADER_PARENT, WIDGET_GROUP_STORAGE_LOADER_TEXT_CHILD);
         if (groupStorageLoaderText != null && groupStorageLoaderText.getText().equalsIgnoreCase("saving...")) {
-            dataManager.getSharedBank().commitTransaction();
+            dataManager.getStateRepository().getSharedBank().commitTransaction();
         }
     }
 
@@ -123,45 +124,45 @@ public class GimHubPlugin extends Plugin {
     public void onStatChanged(StatChanged statChanged) {
         if (doNotUseThisData()) return;
         String playerName = client.getLocalPlayer().getName();
-        dataManager.getSkills().update(new SkillState(playerName, client));
+        dataManager.getStateRepository().getSkills().update(new SkillState(playerName, client));
     }
 
     @Subscribe
     public void onItemContainerChanged(ItemContainerChanged event) {
         if (doNotUseThisData()) return;
         String playerName = client.getLocalPlayer().getName();
+        StateRepository states = dataManager.getStateRepository();
         final int id = event.getContainerId();
         ItemContainer container = event.getItemContainer();
 
         if (id == InventoryID.BANK) {
-            dataManager.getDeposited().reset();
-            dataManager.getBank().update(new ItemContainerState(playerName, container, itemManager));
+            states.getDeposited().reset();
+            states.getBank().update(new ItemContainerState(playerName, container, itemManager));
         } else if (id == InventoryID.SEED_VAULT) {
-            dataManager.getSeedVault().update(new ItemContainerState(playerName, container, itemManager));
+            states.getSeedVault().update(new ItemContainerState(playerName, container, itemManager));
         } else if (id == InventoryID.INV) {
             ItemContainerState newInventoryState = new ItemContainerState(playerName, container, itemManager, 28);
             if (itemsDeposited > 0) {
                 updateDeposited(newInventoryState, (ItemContainerState)
-                        dataManager.getInventory().mostRecentState());
+                        states.getInventory().mostRecentState());
             }
-
-            dataManager.getInventory().update(newInventoryState);
+            states.getInventory().update(newInventoryState);
         } else if (id == InventoryID.WORN) {
             ItemContainerState newEquipmentState = new ItemContainerState(playerName, container, itemManager, 14);
             if (itemsDeposited > 0) {
                 updateDeposited(newEquipmentState, (ItemContainerState)
-                        dataManager.getEquipment().mostRecentState());
+                        states.getEquipment().mostRecentState());
             }
-
-            dataManager.getEquipment().update(newEquipmentState);
+            states.getEquipment().update(newEquipmentState);
         } else if (id == InventoryID.INV_GROUP_TEMP) {
-            dataManager.getSharedBank().update(new ItemContainerState(playerName, container, itemManager));
+            states.getSharedBank().update(new ItemContainerState(playerName, container, itemManager));
         }
     }
 
     @Subscribe
     private void onScriptPostFired(ScriptPostFired event) {
-        if (event.getScriptId() == CHATBOX_ENTERED && client.getWidget(InterfaceID.BankDepositbox.INVENTORY) != null) {
+        if (event.getScriptId() == SCRIPT_CHATBOX_ENTERED
+                && client.getWidget(InterfaceID.BankDepositbox.INVENTORY) != null) {
             itemsMayHaveBeenDeposited();
         }
     }
@@ -171,7 +172,9 @@ public class GimHubPlugin extends Plugin {
         final int param1 = event.getParam1();
         final MenuAction menuAction = event.getMenuAction();
         if (menuAction == MenuAction.CC_OP
-                && (param1 == DEPOSIT_ITEM || param1 == DEPOSIT_INVENTORY || param1 == DEPOSIT_EQUIPMENT)) {
+                && (param1 == WIDGET_DEPOSIT_ITEM_BUTTON
+                        || param1 == WIDGET_DEPOSIT_INVENTORY_BUTTON
+                        || param1 == WIDGET_DEPOSIT_EQUIPMENT_BUTTON)) {
             itemsMayHaveBeenDeposited();
         }
     }
@@ -183,15 +186,7 @@ public class GimHubPlugin extends Plugin {
     }
 
     private void itemsMayHaveBeenDeposited() {
-        // NOTE: In order to determine if an item has gone through the deposit box we first detect if any of the menu
-        // actions were performed OR a custom amount was entered while the deposit box inventory widget was opened.
-        // Then we allow up to two game ticks were an inventory changed event can occur and at that point we assume
-        // it must have been caused by the action detected just before. We can't check the inventory at the time of
-        // either interaction since the inventory may have not been updated yet. We also cannot just check that the
-        // deposit
-        // box window is open in the item container event since it is possible for a player to close the widget before
-        // the event handler is called.
-        itemsDeposited = 2;
+        itemsDeposited = GAME_TICKS_FOR_DEPOSIT_DETECTION;
     }
 
     private void updateInteracting() {
@@ -202,14 +197,17 @@ public class GimHubPlugin extends Plugin {
 
             if (actor != null) {
                 String playerName = player.getName();
-                dataManager.getInteracting().update(new InteractingState(playerName, actor, client));
+                dataManager
+                        .getStateRepository()
+                        .getInteracting()
+                        .update(new InteractingState(playerName, actor, client));
             }
         }
     }
 
     private void updateDeposited(ItemContainerState newState, ItemContainerState previousState) {
         ItemContainerState deposited = newState.whatGotRemoved(previousState);
-        dataManager.getDeposited().update(deposited);
+        dataManager.getStateRepository().getDeposited().update(deposited);
     }
 
     private boolean doNotUseThisData() {

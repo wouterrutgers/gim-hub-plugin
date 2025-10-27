@@ -23,6 +23,7 @@ public class ItemContainerItem {
         if (o == this) return true;
         if (!(o instanceof ItemContainerItem)) return false;
         ItemContainerItem other = (ItemContainerItem) o;
+
         return other.id == id && other.quantity == quantity;
     }
 

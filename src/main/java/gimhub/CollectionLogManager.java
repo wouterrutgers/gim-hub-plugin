@@ -20,7 +20,7 @@ public class CollectionLogManager {
         clogItems.put(itemId, quantity);
     }
 
-    public synchronized void consumeClogItems(Map<String, Object> updates) {
+    public synchronized void consumeState(Map<String, Object> updates) {
         if (clogItems.isEmpty()) return;
         updates.put("collection_log", new HashMap<>(clogItems));
     }

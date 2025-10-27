@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import java.io.IOException;
 import javax.inject.Inject;
 import javax.inject.Singleton;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.client.RuneLiteProperties;
 import okhttp3.*;
@@ -62,9 +63,11 @@ public class HttpRequestService {
         try (Response response = call.execute()) {
             String responseBody = readBodySafe(response);
             logRequest(method, url, requestBody, response, responseBody);
+
             return new HttpResponse(response.isSuccessful(), response.code(), responseBody);
         } catch (IOException ex) {
             log.warn("{} {} failed: {}", method, url, ex.toString());
+
             return new HttpResponse(false, -1, ex.getMessage());
         }
     }
@@ -89,6 +92,7 @@ public class HttpRequestService {
     private static String readBodySafe(Response response) {
         try {
             ResponseBody responseBody = response.body();
+
             return responseBody != null ? responseBody.string() : "<no body>";
         } catch (Exception e) {
             return "<unavailable: " + e.getMessage() + ">";

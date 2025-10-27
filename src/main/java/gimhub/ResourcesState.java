@@ -23,6 +23,7 @@ public class ResourcesState implements ConsumableState {
             if (!(o instanceof CurrentMax)) return false;
 
             CurrentMax other = (CurrentMax) o;
+
             return other.getCurrent() == current && other.getMax() == max;
         }
     }

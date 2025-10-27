@@ -34,8 +34,8 @@ public class DataState {
         return consumeState(whoIsUpdating, new HashMap<>());
     }
 
-    public Object consumeState(Map<String, Object> output) {
-        return consumeState((String) output.get("name"), output);
+    public void consumeState(Map<String, Object> output) {
+        consumeState((String) output.get("name"), output);
     }
 
     public Object consumeState(String whoIsUpdating, Map<String, Object> output) {
