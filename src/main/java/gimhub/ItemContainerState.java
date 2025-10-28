@@ -34,7 +34,7 @@ public class ItemContainerState implements ConsumableState {
         for (int i = 0; i < containerSize; i++) {
             Item item = container.getItem(i);
 
-            if (item == null || !isItemValid(item, itemManager)) {
+            if (!isItemValid(item, itemManager)) {
                 items.add(new ItemContainerItem(0, 0));
             } else {
                 items.add(new ItemContainerItem(itemManager.canonicalize(item.getId()), item.getQuantity()));
@@ -109,10 +109,6 @@ public class ItemContainerState implements ConsumableState {
         }
 
         return itemMap;
-    }
-
-    public boolean isEmpty() {
-        return items.isEmpty();
     }
 
     private boolean isItemValid(Item item, ItemManager itemManager) {

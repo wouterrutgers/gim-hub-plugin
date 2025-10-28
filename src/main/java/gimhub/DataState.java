@@ -1,6 +1,5 @@
 package gimhub;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -9,11 +8,6 @@ public class DataState {
     private ConsumableState previousState;
     private final String key;
     private final boolean transactionBased;
-
-    DataState() {
-        key = "";
-        transactionBased = false;
-    }
 
     DataState(String key, boolean transactionBased) {
         this.key = key;
@@ -30,27 +24,16 @@ public class DataState {
         }
     }
 
-    public Object consumeState(String whoIsUpdating) {
-        return consumeState(whoIsUpdating, new HashMap<>());
-    }
-
     public void consumeState(Map<String, Object> output) {
-        consumeState((String) output.get("name"), output);
-    }
-
-    public Object consumeState(String whoIsUpdating, Map<String, Object> output) {
         final ConsumableState consumedState = state.getAndSet(null);
+        final Object whoIsUpdating = output.get("name");
         if (consumedState != null) {
             final String whoOwnsThis = consumedState.whoOwnsThis();
             if (whoOwnsThis != null && whoOwnsThis.equals(whoIsUpdating)) {
                 Object c = consumedState.get();
                 output.put(key, c);
-
-                return c;
             }
         }
-
-        return null;
     }
 
     public ConsumableState mostRecentState() {

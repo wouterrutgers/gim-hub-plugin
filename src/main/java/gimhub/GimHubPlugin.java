@@ -12,7 +12,6 @@ import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.gameval.InventoryID;
 import net.runelite.api.gameval.VarPlayerID;
 import net.runelite.api.widgets.Widget;
-import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.config.RuneScapeProfileType;
 import net.runelite.client.eventbus.Subscribe;
@@ -32,12 +31,6 @@ public class GimHubPlugin extends Plugin {
 
     @Inject
     private ItemManager itemManager;
-
-    @Inject
-    private ClientThread clientThread;
-
-    @Inject
-    private CollectionLogManager collectionLogManager;
 
     @Inject
     private CollectionLogWidgetSubscriber collectionLogWidgetSubscriber;
@@ -116,7 +109,9 @@ public class GimHubPlugin extends Plugin {
     public void onGameTick(GameTick gameTick) {
         if (doNotUseThisData()) return;
 
-        --itemsDeposited;
+        if (itemsDeposited > 0) {
+            --itemsDeposited;
+        }
         updateInteracting();
 
         Widget groupStorageLoaderText =

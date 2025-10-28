@@ -1,6 +1,5 @@
 package gimhub;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import javax.inject.Singleton;
@@ -34,9 +33,5 @@ public class CollectionLogManager {
         if (ev.getGameState() != GameState.LOGGED_IN) {
             clogItems.clear();
         }
-    }
-
-    public synchronized Map<Integer, Integer> snapshotItems() {
-        return Collections.unmodifiableMap(new HashMap<>(clogItems));
     }
 }

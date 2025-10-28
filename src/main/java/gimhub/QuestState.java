@@ -8,7 +8,7 @@ import net.runelite.api.Quest;
 public class QuestState implements ConsumableState {
     private final Map<Integer, net.runelite.api.QuestState> questStateMap;
     private final transient String playerName;
-    private List<Integer> sortedQuestIds =
+    private final List<Integer> sortedQuestIds =
             Arrays.stream(Quest.values()).map(Quest::getId).sorted().collect(Collectors.toList());
 
     public QuestState(String playerName, Client client) {
