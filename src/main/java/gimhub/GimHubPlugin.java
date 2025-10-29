@@ -41,9 +41,9 @@ public class GimHubPlugin extends Plugin {
     private static final int SECONDS_BETWEEN_INFREQUENT_DATA_CHANGES = 60;
     private static final int GAME_TICKS_FOR_DEPOSIT_DETECTION = 2;
 
-    private static final int WIDGET_DEPOSIT_ITEM_BUTTON = 12582914;
-    private static final int WIDGET_DEPOSIT_INVENTORY_BUTTON = 12582916;
-    private static final int WIDGET_DEPOSIT_EQUIPMENT_BUTTON = 12582918;
+    private static final int WIDGET_DEPOSIT_ITEM_BUTTON = 12582935;
+    private static final int WIDGET_DEPOSIT_INVENTORY_BUTTON = 12582941;
+    private static final int WIDGET_DEPOSIT_EQUIPMENT_BUTTON = 12582942;
     private static final int SCRIPT_CHATBOX_ENTERED = 681;
     private static final int WIDGET_GROUP_STORAGE_LOADER_PARENT = 293;
     private static final int WIDGET_GROUP_STORAGE_LOADER_TEXT_CHILD = 1;
@@ -214,7 +214,7 @@ public class GimHubPlugin extends Plugin {
 
     private void updateDeposited(ItemContainerState newState, ItemContainerState previousState) {
         ItemContainerState deposited = newState.whatGotRemoved(previousState);
-        dataManager.getStateRepository().getDeposited().update(deposited);
+        dataManager.getStateRepository().getDeposited().add(deposited);
     }
 
     /**

@@ -8,7 +8,7 @@ public class DepositedItems {
 
     public DepositedItems() {}
 
-    public synchronized void update(ItemContainerState deposited) {
+    public synchronized void add(ItemContainerState deposited) {
         if (deposited == null) return;
         if (items == null || !deposited.whoOwnsThis().equals(items.whoOwnsThis())) {
             items = deposited;
@@ -28,12 +28,7 @@ public class DepositedItems {
     }
 
     public synchronized void restoreState() {
-        if (consumedItems == null) return;
-        if (items != null) {
-            items = items.add(consumedItems);
-        } else {
-            items = consumedItems;
-        }
+        add(consumedItems);
         consumedItems = null;
     }
 
