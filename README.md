@@ -58,8 +58,6 @@
    - Copy your unique group token
    - In RuneLite, open the "GIM Hub" plugin settings
    - Enter your group name and group token
-   - Open the "Self Hosted Config" section
-   - Add the URL: `https://gim-hub.com` (no trailing slash!)
 
 3. **Start tracking**
    - The plugin automatically streams your data

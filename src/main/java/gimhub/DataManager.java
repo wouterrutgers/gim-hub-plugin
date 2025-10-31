@@ -36,7 +36,7 @@ public class DataManager {
 
         if (groupToken.isEmpty()) return;
 
-        if(!isMemberInGroup) {
+        if (!isMemberInGroup) {
             isMemberInGroup = fetchIsMember(groupToken, playerName);
         }
 
@@ -58,7 +58,7 @@ public class DataManager {
         collectionLogManager.consumeState(updates);
 
         // We require greater than 1 since name field is automatically included
-        if(updates.size() <= 1) {
+        if (updates.size() <= 1) {
             log.debug("Skip POST: no changes to send (fields={})", updates.size());
             return;
         }
