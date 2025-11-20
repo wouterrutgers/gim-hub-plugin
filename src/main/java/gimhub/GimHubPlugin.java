@@ -5,7 +5,6 @@ import java.time.temporal.ChronoUnit;
 import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.*;
-import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.*;
 import net.runelite.api.gameval.InterfaceID;
@@ -68,6 +67,20 @@ public class GimHubPlugin extends Plugin {
         dataManager.submitToApi(playerName);
     }
 
+    // Gets the player's world location, with consideration for if they are on a boat.
+    private static WorldPoint getWorldLocation(Client client) {
+        Player player = client.getLocalPlayer();
+
+        int worldViewID = player.getWorldView().getId();
+        boolean isOnBoat = worldViewID != -1;
+        if (isOnBoat) {
+            WorldEntity worldEntity =
+                    client.getTopLevelWorldView().worldEntities().byIndex(worldViewID);
+            return WorldPoint.fromLocalInstance(client, worldEntity.getLocalLocation());
+        }
+        return WorldPoint.fromLocalInstance(client, player.getLocalLocation());
+    }
+
     @Schedule(period = SECONDS_BETWEEN_UPLOADS, unit = ChronoUnit.SECONDS)
     public void updateThingsThatDoChangeOften() {
         if (doNotUseThisData()) return;
@@ -77,9 +90,7 @@ public class GimHubPlugin extends Plugin {
 
         states.getResources().update(new ResourcesState(playerName, client));
 
-        LocalPoint localPoint = player.getLocalLocation();
-        WorldPoint worldPoint = WorldPoint.fromLocalInstance(client, localPoint);
-        states.getPosition().update(new LocationState(playerName, worldPoint));
+        states.getPosition().update(new LocationState(playerName, getWorldLocation(client)));
 
         states.getRunePouch().update(new RunePouchState(playerName, client));
         states.getQuiver().update(new QuiverState(playerName, client, itemManager));
