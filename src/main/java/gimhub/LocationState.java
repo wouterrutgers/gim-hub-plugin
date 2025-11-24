@@ -13,18 +13,22 @@ public class LocationState implements ConsumableState {
     @Getter
     private final int plane;
 
+    @Getter
+    private final boolean isOnBoat;
+
     private final transient String playerName;
 
-    LocationState(String playerName, WorldPoint worldPoint) {
+    LocationState(String playerName, WorldPoint worldPoint, boolean isOnBoat) {
         this.playerName = playerName;
         x = worldPoint.getX();
         y = worldPoint.getY();
         plane = worldPoint.getPlane();
+        this.isOnBoat = isOnBoat;
     }
 
     @Override
     public Object get() {
-        return new int[] {x, y, plane};
+        return new int[] {x, y, plane, isOnBoat ? 1 : 0};
     }
 
     @Override
@@ -39,11 +43,11 @@ public class LocationState implements ConsumableState {
 
         LocationState other = (LocationState) o;
 
-        return (x == other.x) && (y == other.y) && (plane == other.plane);
+        return (x == other.x) && (y == other.y) && (plane == other.plane) && (isOnBoat == other.isOnBoat);
     }
 
     @Override
     public String toString() {
-        return String.format("{ x: %d, y: %d, plane: %d }", x, y, plane);
+        return String.format("{ x: %d, y: %d, plane: %d, isOnBoat: %b }", x, y, plane, isOnBoat);
     }
 }

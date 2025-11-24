@@ -67,20 +67,6 @@ public class GimHubPlugin extends Plugin {
         dataManager.submitToApi(playerName);
     }
 
-    // Gets the player's world location, with consideration for if they are on a boat.
-    private static WorldPoint getWorldLocation(Client client) {
-        Player player = client.getLocalPlayer();
-
-        int worldViewID = player.getWorldView().getId();
-        boolean isOnBoat = worldViewID != -1;
-        if (isOnBoat) {
-            WorldEntity worldEntity =
-                    client.getTopLevelWorldView().worldEntities().byIndex(worldViewID);
-            return WorldPoint.fromLocalInstance(client, worldEntity.getLocalLocation());
-        }
-        return WorldPoint.fromLocalInstance(client, player.getLocalLocation());
-    }
-
     @Schedule(period = SECONDS_BETWEEN_UPLOADS, unit = ChronoUnit.SECONDS)
     public void updateThingsThatDoChangeOften() {
         if (doNotUseThisData()) return;
@@ -90,7 +76,16 @@ public class GimHubPlugin extends Plugin {
 
         states.getResources().update(new ResourcesState(playerName, client));
 
-        states.getPosition().update(new LocationState(playerName, getWorldLocation(client)));
+        final int worldViewID = player.getWorldView().getId();
+        final boolean isOnBoat = worldViewID != -1;
+        WorldPoint location = WorldPoint.fromLocalInstance(client, player.getLocalLocation());
+        if (isOnBoat) {
+            WorldEntity worldEntity =
+                    client.getTopLevelWorldView().worldEntities().byIndex(worldViewID);
+            location = WorldPoint.fromLocalInstance(client, worldEntity.getLocalLocation());
+        }
+
+        states.getPosition().update(new LocationState(playerName, location, isOnBoat));
 
         states.getRunePouch().update(new RunePouchState(playerName, client));
         states.getQuiver().update(new QuiverState(playerName, client, itemManager));
