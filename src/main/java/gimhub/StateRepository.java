@@ -46,6 +46,9 @@ public class StateRepository {
     private final DataState achievementDiary = new DataState("diary_vars", false);
 
     @Getter
+    private final DataState pohWardrobe = new DataState("poh_wardrobe", false);
+
+    @Getter
     private final DepositedItems deposited = new DepositedItems();
 
     public void consumeAllStates(Map<String, Object> updates) {
@@ -62,6 +65,7 @@ public class StateRepository {
         interacting.consumeState(updates);
         seedVault.consumeState(updates);
         achievementDiary.consumeState(updates);
+        pohWardrobe.consumeState(updates);
         deposited.consumeState(updates);
     }
 
@@ -79,6 +83,7 @@ public class StateRepository {
         interacting.restoreState();
         seedVault.restoreState();
         achievementDiary.restoreState();
+        pohWardrobe.restoreState();
         deposited.restoreState();
     }
 }
