@@ -147,7 +147,6 @@ public class GimHubPlugin extends Plugin {
         if (id == InventoryID.BANK) {
             states.getDeposited().reset();
             states.getBank().update(new ItemContainerState(playerName, container, itemManager));
-
         } else if (id == InventoryID.SEED_VAULT) {
             states.getSeedVault().update(new ItemContainerState(playerName, container, itemManager));
         } else if (id == POH_WARDROBE_ID) {
