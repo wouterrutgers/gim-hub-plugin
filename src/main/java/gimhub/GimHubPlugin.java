@@ -47,6 +47,8 @@ public class GimHubPlugin extends Plugin {
     private static final int WIDGET_GROUP_STORAGE_LOADER_PARENT = 293;
     private static final int WIDGET_GROUP_STORAGE_LOADER_TEXT_CHILD = 1;
 
+    private static final int POH_WARDROBE_ID = 33405;
+
     @Override
     protected void startUp() throws Exception {
         collectionLogWidgetSubscriber.startUp();
@@ -145,8 +147,11 @@ public class GimHubPlugin extends Plugin {
         if (id == InventoryID.BANK) {
             states.getDeposited().reset();
             states.getBank().update(new ItemContainerState(playerName, container, itemManager));
+
         } else if (id == InventoryID.SEED_VAULT) {
             states.getSeedVault().update(new ItemContainerState(playerName, container, itemManager));
+        } else if (id == POH_WARDROBE_ID) {
+            states.getPohCostumeRoom().update(new ItemContainerState(playerName, container, itemManager));
         } else if (id == InventoryID.INV) {
             ItemContainerState newInventoryState = new ItemContainerState(playerName, container, itemManager, 28);
             if (itemsDeposited > 0) {

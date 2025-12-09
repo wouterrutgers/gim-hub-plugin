@@ -34,10 +34,16 @@ tasks.withType(JavaCompile).configureEach {
     options.release.set(11)
 }
 
+task runClient(type: JavaExec) {
+    classpath = sourceSets.main.runtimeClasspath + sourceSets.test.runtimeClasspath
+    mainClass = 'gimhub.GimHubPluginTest'
+    jvmArgs '-ea', '--add-exports=java.desktop/com.apple.eawt=ALL-UNNAMED'
+}
+
 tasks.register('shadowJar', Jar) {
     dependsOn configurations.testRuntimeClasspath
     manifest {
-        attributes('Main-Class': 'com.example.ExamplePluginTest', 'Multi-Release': true)
+        attributes('Main-Class': 'gimhub.GimHubPluginTest', 'Multi-Release': true)
     }
 
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
