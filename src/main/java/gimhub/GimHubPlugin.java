@@ -151,7 +151,7 @@ public class GimHubPlugin extends Plugin {
         } else if (id == InventoryID.SEED_VAULT) {
             states.getSeedVault().update(new ItemContainerState(playerName, container, itemManager));
         } else if (id == POH_WARDROBE_ID) {
-            states.getPohWardrobe().update(new ItemContainerState(playerName, container, itemManager));
+            states.getPohCostumeRoom().update(new ItemContainerState(playerName, container, itemManager));
         } else if (id == InventoryID.INV) {
             ItemContainerState newInventoryState = new ItemContainerState(playerName, container, itemManager, 28);
             if (itemsDeposited > 0) {
