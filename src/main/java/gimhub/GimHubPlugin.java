@@ -1,6 +1,7 @@
 package gimhub;
 
 import com.google.inject.Provides;
+import gimhub.items.ItemsUtilities;
 import java.time.temporal.ChronoUnit;
 import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
@@ -8,8 +9,6 @@ import net.runelite.api.*;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.*;
 import net.runelite.api.gameval.InterfaceID;
-import net.runelite.api.gameval.VarPlayerID;
-import net.runelite.api.gameval.VarbitID;
 import net.runelite.api.widgets.Widget;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.config.RuneScapeProfileType;
@@ -87,10 +86,8 @@ public class GimHubPlugin extends Plugin {
     @Schedule(period = SECONDS_BETWEEN_INFREQUENT_DATA_CHANGES, unit = ChronoUnit.SECONDS)
     public void updateThingsThatDoNotChangeOften() {
         if (doNotUseThisData()) return;
-        String playerName = client.getLocalPlayer().getName();
-        StateRepository states = dataManager.getStateRepository();
-        states.getQuests().update(new QuestState(playerName, client));
-        states.getAchievementDiary().update(new AchievementDiaryState(playerName, client));
+
+        dataManager.getAchievementRepository().update(client);
     }
 
     @Subscribe
@@ -98,19 +95,12 @@ public class GimHubPlugin extends Plugin {
         if (doNotUseThisData()) return;
 
         final int varpId = event.getVarpId();
-        if (varpId == VarPlayerID.DIZANAS_QUIVER_TEMP_AMMO || varpId == VarPlayerID.DIZANAS_QUIVER_TEMP_AMMO_AMOUNT) {
+        final int varbitId = event.getVarbitId();
+
+        if (ItemsUtilities.isQuiver(varpId)) {
             dataManager.getItemRepository().updateQuiver(client);
         }
-
-        final int varbitId = event.getVarbitId();
-        if (varbitId == VarbitID.RUNE_POUCH_TYPE_1
-                || varbitId == VarbitID.RUNE_POUCH_QUANTITY_1
-                || varbitId == VarbitID.RUNE_POUCH_TYPE_2
-                || varbitId == VarbitID.RUNE_POUCH_QUANTITY_2
-                || varbitId == VarbitID.RUNE_POUCH_TYPE_3
-                || varbitId == VarbitID.RUNE_POUCH_QUANTITY_3
-                || varbitId == VarbitID.RUNE_POUCH_TYPE_4
-                || varbitId == VarbitID.RUNE_POUCH_QUANTITY_4) {
+        if (ItemsUtilities.isRunePouch(varbitId)) {
             dataManager.getItemRepository().updateRunepouch(client);
         }
     }

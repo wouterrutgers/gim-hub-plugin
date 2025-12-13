@@ -3,8 +3,8 @@ package gimhub.items;
 import gimhub.APIConsumable;
 import java.util.ArrayList;
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
+import javax.annotation.Nullable;
 import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.*;
@@ -67,22 +67,29 @@ public class ItemRepository {
     private static final int CONTAINER_SIZE_INVENTORY = 28;
     private static final int CONTAINER_SIZE_EQUIPMENT = 14;
 
-    private AtomicReference<SynchronizedState> stateRef;
+    private final AtomicReference<SynchronizedState> stateRef = new AtomicReference<>();
     private int gameTicksToLogDeposits = 0;
 
-    private void reset(String player) {
-        gameTicksToLogDeposits = 0;
+    @Nullable private SynchronizedState safeGetOrResetIfNewPlayer(String player) {
+        SynchronizedState state = stateRef.get();
+        if (state != null && state.ownedPlayer.equals(player)) {
+            return state;
+        }
 
-        stateRef.set(new SynchronizedState(player));
+        SynchronizedState newState = new SynchronizedState(player);
+        if (!stateRef.compareAndSet(state, newState)) {
+            return null;
+        }
+
+        gameTicksToLogDeposits = 0;
+        return newState;
     }
 
     public void updateRunepouch(Client client) {
         final String player = client.getLocalPlayer().getName();
 
-        if (!Objects.equals(stateRef.get().ownedPlayer, player)) {
-            reset(player);
-        }
-        SynchronizedState state = stateRef.get();
+        SynchronizedState state = safeGetOrResetIfNewPlayer(player);
+        if (state == null) return;
 
         final EnumComposition runepouchEnum = client.getEnum(EnumID.RUNEPOUCH_RUNE);
         final ArrayList<Item> runepouchItems = new ArrayList<>();
@@ -104,10 +111,8 @@ public class ItemRepository {
     public void updateQuiver(Client client) {
         final String player = client.getLocalPlayer().getName();
 
-        if (!Objects.equals(stateRef.get().ownedPlayer, player)) {
-            reset(player);
-        }
-        SynchronizedState state = stateRef.get();
+        SynchronizedState state = safeGetOrResetIfNewPlayer(player);
+        if (state == null) return;
 
         final ArrayList<Item> quiverItems = new ArrayList<>();
         quiverItems.add(new Item(
@@ -117,10 +122,8 @@ public class ItemRepository {
     }
 
     public void commitSharedBank(String player) {
-        if (!Objects.equals(stateRef.get().ownedPlayer, player)) {
-            reset(player);
-        }
-        SynchronizedState state = stateRef.get();
+        SynchronizedState state = safeGetOrResetIfNewPlayer(player);
+        if (state == null) return;
 
         state.sharedBank.commitTransaction();
     }
@@ -132,10 +135,8 @@ public class ItemRepository {
     }
 
     public void onItemContainerChanged(String player, ItemContainer container) {
-        if (!Objects.equals(stateRef.get().ownedPlayer, player)) {
-            reset(player);
-        }
-        SynchronizedState state = stateRef.get();
+        SynchronizedState state = safeGetOrResetIfNewPlayer(player);
+        if (state == null) return;
 
         final int id = container.getId();
 
@@ -177,18 +178,15 @@ public class ItemRepository {
     }
 
     public void itemsMayHaveBeenDeposited(String player) {
-        if (!Objects.equals(stateRef.get().ownedPlayer, player)) {
-            reset(player);
-        }
+        SynchronizedState state = safeGetOrResetIfNewPlayer(player);
+        if (state == null) return;
 
         gameTicksToLogDeposits = GAME_TICKS_FOR_DEPOSIT_DETECTION;
     }
 
     public void consumeAllStates(String player, Map<String, Object> updates) {
-        SynchronizedState state = stateRef.get();
-        if (!Objects.equals(state.ownedPlayer, player)) {
-            return;
-        }
+        SynchronizedState state = safeGetOrResetIfNewPlayer(player);
+        if (state == null) return;
 
         for (final APIConsumable<?> container : state.getAllContainers()) {
             container.consumeState(updates);
@@ -196,10 +194,8 @@ public class ItemRepository {
     }
 
     public void restoreAllStates(String player) {
-        SynchronizedState state = stateRef.get();
-        if (!Objects.equals(state.ownedPlayer, player)) {
-            return;
-        }
+        SynchronizedState state = safeGetOrResetIfNewPlayer(player);
+        if (state == null) return;
 
         for (final APIConsumable<?> container : state.getAllContainers()) {
             container.restoreState();
