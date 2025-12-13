@@ -1,4 +1,4 @@
-package gimhub;
+package gimhub.items;
 
 import lombok.Getter;
 
@@ -9,7 +9,7 @@ public class ItemContainerItem {
     @Getter
     private int quantity;
 
-    ItemContainerItem(int id, int quantity) {
+    public ItemContainerItem(int id, int quantity) {
         this.id = id;
         this.quantity = quantity;
     }

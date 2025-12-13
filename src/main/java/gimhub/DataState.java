@@ -7,21 +7,18 @@ public class DataState {
     private final AtomicReference<ConsumableState> state = new AtomicReference<>();
     private ConsumableState previousState;
     private final String key;
-    private final boolean transactionBased;
 
-    DataState(String key, boolean transactionBased) {
+    DataState(String key) {
         this.key = key;
-        this.transactionBased = transactionBased;
     }
 
     public void update(ConsumableState o) {
-        if (!o.equals(previousState)) {
-            previousState = o;
-
-            if (!transactionBased) {
-                state.set(o);
-            }
+        if(o.equals(previousState)) {
+            return;
         }
+
+        previousState = o;
+        state.set(previousState);
     }
 
     public void consumeState(Map<String, Object> output) {
@@ -42,9 +39,5 @@ public class DataState {
 
     public void restoreState() {
         state.compareAndSet(null, previousState);
-    }
-
-    public void commitTransaction() {
-        state.set(previousState);
     }
 }

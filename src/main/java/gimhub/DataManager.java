@@ -1,5 +1,6 @@
 package gimhub;
 
+import gimhub.items.ItemRepository;
 import java.util.HashMap;
 import java.util.Map;
 import javax.inject.Inject;
@@ -22,6 +23,10 @@ public class DataManager {
     @Getter
     @Inject
     private StateRepository stateRepository;
+
+    @Getter
+    @Inject
+    private ItemRepository itemRepository;
 
     @Inject
     private ApiUrlBuilder apiUrlBuilder;
@@ -55,6 +60,7 @@ public class DataManager {
         Map<String, Object> updates = new HashMap<>();
         updates.put("name", playerName);
         stateRepository.consumeAllStates(updates);
+        itemRepository.consumeAllStates(playerName, updates);
         collectionLogManager.consumeState(updates);
 
         // We require greater than 1 since name field is automatically included
@@ -70,6 +76,7 @@ public class DataManager {
             if (response.getCode() == 422) {
                 isMemberInGroup = false;
             }
+            itemRepository.restoreAllStates(playerName);
             stateRepository.restoreAllStates();
             return;
         }
