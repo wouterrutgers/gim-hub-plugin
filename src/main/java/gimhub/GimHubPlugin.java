@@ -6,7 +6,6 @@ import java.time.temporal.ChronoUnit;
 import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.*;
-import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.*;
 import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.widgets.Widget;
@@ -62,22 +61,9 @@ public class GimHubPlugin extends Plugin {
     @Schedule(period = SECONDS_BETWEEN_UPLOADS, unit = ChronoUnit.SECONDS)
     public void updateThingsThatDoChangeOften() {
         if (doNotUseThisData()) return;
-        Player player = client.getLocalPlayer();
-        String playerName = player.getName();
-        StateRepository states = dataManager.getStateRepository();
 
-        states.getResources().update(new ResourcesState(playerName, client));
-
-        final int worldViewID = player.getWorldView().getId();
-        final boolean isOnBoat = worldViewID != -1;
-        WorldPoint location = WorldPoint.fromLocalInstance(client, player.getLocalLocation());
-        if (isOnBoat) {
-            WorldEntity worldEntity =
-                    client.getTopLevelWorldView().worldEntities().byIndex(worldViewID);
-            location = WorldPoint.fromLocalInstance(client, worldEntity.getLocalLocation());
-        }
-
-        states.getPosition().update(new LocationState(playerName, location, isOnBoat));
+        dataManager.getActivityRepository().updateResources(client);
+        dataManager.getActivityRepository().updateLocation(client);
 
         dataManager.getItemRepository().updateRunepouch(client);
         dataManager.getItemRepository().updateQuiver(client);
@@ -124,8 +110,8 @@ public class GimHubPlugin extends Plugin {
     @Subscribe
     public void onStatChanged(StatChanged statChanged) {
         if (doNotUseThisData()) return;
-        String playerName = client.getLocalPlayer().getName();
-        dataManager.getStateRepository().getSkills().update(new SkillState(playerName, client));
+
+        dataManager.getActivityRepository().updateSkills(client);
     }
 
     @Subscribe
@@ -173,19 +159,7 @@ public class GimHubPlugin extends Plugin {
     }
 
     private void updateInteracting() {
-        Player player = client.getLocalPlayer();
-
-        if (player != null) {
-            Actor actor = player.getInteracting();
-
-            if (actor != null) {
-                String playerName = player.getName();
-                dataManager
-                        .getStateRepository()
-                        .getInteracting()
-                        .update(new InteractingState(playerName, actor, client));
-            }
-        }
+        dataManager.getActivityRepository().updateInteracting(client);
     }
 
     /**
@@ -195,7 +169,10 @@ public class GimHubPlugin extends Plugin {
     private boolean doNotUseThisData() {
         boolean isStandardProfile = RuneScapeProfileType.getCurrent(client) == RuneScapeProfileType.STANDARD;
 
-        return client.getGameState() != GameState.LOGGED_IN || client.getLocalPlayer() == null || !isStandardProfile;
+        return client.getGameState() != GameState.LOGGED_IN
+                || client.getLocalPlayer() == null
+                || client.getLocalPlayer().getName() == null
+                || !isStandardProfile;
     }
 
     @Provides

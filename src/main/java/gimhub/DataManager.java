@@ -1,6 +1,7 @@
 package gimhub;
 
 import gimhub.achievement.AchievementRepository;
+import gimhub.activity.ActivityRepository;
 import gimhub.items.ItemRepository;
 import java.util.HashMap;
 import java.util.Map;
@@ -23,7 +24,7 @@ public class DataManager {
 
     @Getter
     @Inject
-    private StateRepository stateRepository;
+    private ActivityRepository activityRepository;
 
     @Getter
     @Inject
@@ -64,12 +65,10 @@ public class DataManager {
 
         Map<String, Object> updates = new HashMap<>();
         updates.put("name", playerName);
-        stateRepository.consumeAllStates(updates);
+        activityRepository.consumeAllStates(playerName, updates);
         itemRepository.consumeAllStates(playerName, updates);
         achievementRepository.consumeAllStates(playerName, updates);
         collectionLogManager.consumeState(updates);
-
-        log.debug("{}", updates.toString());
 
         // We require greater than 1 since name field is automatically included
         if (updates.size() <= 1) {
@@ -86,7 +85,7 @@ public class DataManager {
             }
             achievementRepository.restoreAllStates(playerName);
             itemRepository.restoreAllStates(playerName);
-            stateRepository.restoreAllStates();
+            activityRepository.restoreAllStates(playerName);
             return;
         }
 

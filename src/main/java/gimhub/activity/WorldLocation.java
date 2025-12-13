@@ -1,47 +1,32 @@
-package gimhub;
+package gimhub.activity;
 
-import lombok.Getter;
+import gimhub.APISerializable;
 import net.runelite.api.coords.WorldPoint;
 
-public class LocationState implements ConsumableState {
-    @Getter
+public class WorldLocation implements APISerializable {
     private final int x;
-
-    @Getter
     private final int y;
-
-    @Getter
     private final int plane;
-
-    @Getter
     private final boolean isOnBoat;
 
-    private final transient String playerName;
-
-    LocationState(String playerName, WorldPoint worldPoint, boolean isOnBoat) {
-        this.playerName = playerName;
-        x = worldPoint.getX();
-        y = worldPoint.getY();
-        plane = worldPoint.getPlane();
+    WorldLocation(WorldPoint worldPoint, boolean isOnBoat) {
+        this.x = worldPoint.getX();
+        this.y = worldPoint.getY();
+        this.plane = worldPoint.getPlane();
         this.isOnBoat = isOnBoat;
     }
 
     @Override
-    public Object get() {
+    public Object serialize() {
         return new int[] {x, y, plane, isOnBoat ? 1 : 0};
-    }
-
-    @Override
-    public String whoOwnsThis() {
-        return playerName;
     }
 
     @Override
     public boolean equals(Object o) {
         if (o == this) return true;
-        if (!(o instanceof LocationState)) return false;
+        if (!(o instanceof WorldLocation)) return false;
 
-        LocationState other = (LocationState) o;
+        WorldLocation other = (WorldLocation) o;
 
         return (x == other.x) && (y == other.y) && (plane == other.plane) && (isOnBoat == other.isOnBoat);
     }
