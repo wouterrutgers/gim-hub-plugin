@@ -16,13 +16,22 @@ import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.client.config.RuneScapeProfileType;
-import net.runelite.client.game.ItemManager;
 
 @Slf4j
 @Singleton
 public class DataManager {
-    @Inject
-    private GimHubConfig config;
+    // Managed by the Client thread
+
+    private PlayerState state = null;
+    private FlatState flatMostRecent = null;
+
+    // Shared by both threads
+
+    private final AtomicReference<FlatState> flatRef = new AtomicReference<>();
+
+    // Managed by the request thread
+
+    private FlatState flatFromFailedRequest = null;
 
     @Inject
     private HttpRequestService httpRequestService;
@@ -31,8 +40,15 @@ public class DataManager {
     private CollectionLogManager collectionLogManager;
 
     @Inject
-    private ItemManager itemManager;
+    private GimHubConfig config;
 
+    @Inject
+    private ApiUrlBuilder apiUrlBuilder;
+
+    private boolean isMemberInGroup = false;
+    private int skipNextNAttempts = 0;
+
+    /** Our tracked state of the player: their stats, items, location, etc. */
     public static class PlayerState {
         public final String ownedPlayer;
         public final ActivityRepository activityRepository;
@@ -59,6 +75,7 @@ public class DataManager {
         }
     }
 
+    /** PlayerState flattened but not yet serialized, in a form that allows easier diffing by key-value-pairs. */
     private static class FlatState {
         @Getter
         private final String ownedPlayer;
@@ -110,22 +127,13 @@ public class DataManager {
         }
     }
 
-    // Managed by the Client thread
-    private PlayerState state = null;
-    private FlatState flatMostRecent = null;
-
-    // Shared by both threads
-    private final AtomicReference<FlatState> flatRef = new AtomicReference<>();
-
-    // Managed by the request thread
-    private FlatState flatFromFailedRequest = null;
-
-    @Inject
-    private ApiUrlBuilder apiUrlBuilder;
-
-    private boolean isMemberInGroup = false;
-    private int skipNextNAttempts = 0;
-
+    /**
+     * Call from Client thread. Get the PlayerState to then write updates to. Checks the passed client to see if the
+     * player changes and is valid (logged in, not seasonal, etc.). If the player name changes, then the state is reset
+     * before being returned.
+     *
+     * @return The current valid PlayerState, or null if the Player is invalid.
+     */
     @Nullable public PlayerState getMaybeResetState(Client client) {
         final boolean isStandardProfile = RuneScapeProfileType.getCurrent(client) == RuneScapeProfileType.STANDARD;
         final boolean isValidPlayerLoggedIn = client.getGameState() == GameState.LOGGED_IN
@@ -144,6 +152,7 @@ public class DataManager {
         return state;
     }
 
+    /** Call from the Client thread. Releases state updates to the request thread. */
     public void stageForSubmitToAPI() {
         FlatState full = state.flatten();
         FlatState trimmed = full;
@@ -161,8 +170,8 @@ public class DataManager {
             combined = FlatState.combineWithPriority(trimmed, notYetSubmitted);
         }
 
-        final boolean raceOccured = !flatRef.compareAndSet(notYetSubmitted, combined);
-        if (!raceOccured) {
+        final boolean raceOccurred = !flatRef.compareAndSet(notYetSubmitted, combined);
+        if (!raceOccurred) {
             return;
         }
 
@@ -171,6 +180,12 @@ public class DataManager {
         }
     }
 
+    /**
+     * Call from the request thread. Performs all our network requests and authentication for posting player data to the
+     * configured server. If playerName does not match the state we are given, this method aborts.
+     *
+     * @param playerName The player name to expect updates for.
+     */
     public void submitToApi(String playerName) {
         if (skipNextNAttempts-- > 0) return;
 
@@ -197,8 +212,7 @@ public class DataManager {
         FlatState flat = flatRef.get();
         if (flat == null || !flat.ownedPlayer.equals(playerName)) {
             // The Client thread changed players.
-            // Since that player may be newer than the playerName this method was called with,
-            // we exit instead of writing null.
+            // We exit and wait for next time since we don't know how out-of-date flat is.
             log.debug("Skip POST: Player changed. Backing off.");
             return;
         }

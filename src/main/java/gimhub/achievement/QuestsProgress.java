@@ -2,11 +2,15 @@ package gimhub.achievement;
 
 import gimhub.APISerializable;
 import java.util.*;
+import java.util.stream.Collectors;
 import net.runelite.api.Client;
 import net.runelite.api.Quest;
 
 public class QuestsProgress implements APISerializable {
     private final Map<Integer, net.runelite.api.QuestState> questStateMap;
+
+    private static final List<Integer> sortedQuestIDs =
+            Arrays.stream(Quest.values()).map(Quest::getId).sorted().collect(Collectors.toUnmodifiableList());
 
     public QuestsProgress(Client client) {
         this.questStateMap = new HashMap<>();
@@ -28,7 +32,7 @@ public class QuestsProgress implements APISerializable {
     @Override
     public Object serialize() {
         List<Integer> result = new ArrayList<>(questStateMap.size());
-        for (Integer questId : AchievementUtilities.sortedQuestIDs) {
+        for (Integer questId : sortedQuestIDs) {
             result.add(questStateMap.get(questId).ordinal());
         }
 
