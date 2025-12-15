@@ -1,10 +1,9 @@
 package gimhub.items;
 
 import gimhub.APISerializable;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Item;
 import net.runelite.api.ItemContainer;
@@ -24,6 +23,10 @@ public class ItemsUnordered implements APISerializable {
 
     public ItemsUnordered(ItemsOrdered items) {
         this.itemsQuantityByID = new HashMap<>();
+
+        if (items == null) {
+            return;
+        }
 
         for (final ItemContainerItem item : items.getItems()) {
             final int itemID = item.getId();
@@ -61,14 +64,12 @@ public class ItemsUnordered implements APISerializable {
 
         ItemsUnordered result = new ItemsUnordered();
 
-        for (final Integer itemID : left.itemsQuantityByID.keySet()) {
-            final int quantity = left.itemsQuantityByID.get(itemID) + right.itemsQuantityByID.getOrDefault(itemID, 0);
-
-            result.itemsQuantityByID.put(itemID, quantity);
-        }
-
-        for (final Integer itemID : left.itemsQuantityByID.keySet()) {
-            final int quantity = left.itemsQuantityByID.getOrDefault(itemID, 0) + right.itemsQuantityByID.get(itemID);
+        final Set<Integer> combinedKeys = Stream.concat(
+                        left.itemsQuantityByID.keySet().stream(), right.itemsQuantityByID.keySet().stream())
+                .collect(Collectors.toSet());
+        for (final Integer itemID : combinedKeys) {
+            final int quantity =
+                    left.itemsQuantityByID.getOrDefault(itemID, 0) + right.itemsQuantityByID.getOrDefault(itemID, 0);
 
             result.itemsQuantityByID.put(itemID, quantity);
         }

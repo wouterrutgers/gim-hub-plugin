@@ -1,11 +1,8 @@
 package gimhub.items;
 
-import gimhub.APIConsumable;
+import gimhub.APISerializable;
 import java.util.ArrayList;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicReference;
-import javax.annotation.Nullable;
-import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.*;
 import net.runelite.api.gameval.InventoryID;
@@ -15,50 +12,22 @@ import net.runelite.client.game.ItemManager;
 
 @Slf4j
 public class ItemRepository {
-    @Inject
-    private ItemManager itemManager;
+    private ItemsOrdered inventory = null;
+    private ItemsOrdered equipment = null;
 
-    private static class SynchronizedState {
-        public final String ownedPlayer;
+    private ItemsUnordered sharedBank = null;
+    private ItemsUnordered sharedBankUncommited = null;
 
-        SynchronizedState(String ownedPlayer) {
-            this.ownedPlayer = ownedPlayer;
-        }
+    private ItemsUnordered bank = null;
+    private ItemsUnordered seedVault = null;
+    private ItemsUnordered pohCostumeRoom = null;
 
-        public final APIConsumable<ItemsOrdered> inventory = new APIConsumable<>("inventory", false);
-        public final APIConsumable<ItemsOrdered> equipment = new APIConsumable<>("equipment", false);
+    private ItemsOrdered runePouch = null;
+    private ItemsOrdered quiver = null;
 
-        public final APIConsumable<ItemsUnordered> sharedBank = new APIConsumable<>("shared_bank", true);
-
-        public final APIConsumable<ItemsUnordered> bank = new APIConsumable<>("bank", false);
-        public final APIConsumable<ItemsUnordered> seedVault = new APIConsumable<>("seed_vault", false);
-        public final APIConsumable<ItemsUnordered> pohCostumeRoom = new APIConsumable<>("poh_costume_room", false);
-
-        public final APIConsumable<ItemsOrdered> runePouch = new APIConsumable<>("rune_pouch", false);
-        public final APIConsumable<ItemsOrdered> quiver = new APIConsumable<>("quiver", false);
-
-        public final APIConsumable<ItemsUnordered> deposited = new APIConsumable<>("deposited", false);
-
-        public Iterable<APIConsumable<?>> getAllContainers() {
-            final ArrayList<APIConsumable<?>> result = new ArrayList<>();
-
-            result.add(inventory);
-            result.add(equipment);
-
-            result.add(sharedBank);
-
-            result.add(bank);
-            result.add(seedVault);
-            result.add(pohCostumeRoom);
-
-            result.add(runePouch);
-            result.add(quiver);
-
-            result.add(deposited);
-
-            return result;
-        }
-    }
+    private ItemsUnordered deposited = null;
+    private ItemsUnordered inventoryPreDeposit = null;
+    private ItemsUnordered equipmentPreDeposit = null;
 
     private static final int INVENTORY_ID_COSTUME_ROOM = 33405;
 
@@ -67,30 +36,9 @@ public class ItemRepository {
     private static final int CONTAINER_SIZE_INVENTORY = 28;
     private static final int CONTAINER_SIZE_EQUIPMENT = 14;
 
-    private final AtomicReference<SynchronizedState> stateRef = new AtomicReference<>();
     private int gameTicksToLogDeposits = 0;
 
-    @Nullable private SynchronizedState safeGetOrResetIfNewPlayer(String player) {
-        SynchronizedState state = stateRef.get();
-        if (state != null && state.ownedPlayer.equals(player)) {
-            return state;
-        }
-
-        SynchronizedState newState = new SynchronizedState(player);
-        if (!stateRef.compareAndSet(state, newState)) {
-            return null;
-        }
-
-        gameTicksToLogDeposits = 0;
-        return newState;
-    }
-
-    public void updateRunepouch(Client client) {
-        final String player = client.getLocalPlayer().getName();
-
-        SynchronizedState state = safeGetOrResetIfNewPlayer(player);
-        if (state == null) return;
-
+    public void updateRunepouch(Client client, ItemManager itemManager) {
         final EnumComposition runepouchEnum = client.getEnum(EnumID.RUNEPOUCH_RUNE);
         final ArrayList<Item> runepouchItems = new ArrayList<>();
         runepouchItems.add(new Item(
@@ -105,27 +53,20 @@ public class ItemRepository {
         runepouchItems.add(new Item(
                 runepouchEnum.getIntValue(client.getVarbitValue(VarbitID.RUNE_POUCH_TYPE_4)),
                 client.getVarbitValue(VarbitID.RUNE_POUCH_QUANTITY_4)));
-        state.runePouch.update(new ItemsOrdered(runepouchItems, itemManager));
+        runePouch = new ItemsOrdered(runepouchItems, itemManager);
     }
 
-    public void updateQuiver(Client client) {
-        final String player = client.getLocalPlayer().getName();
-
-        SynchronizedState state = safeGetOrResetIfNewPlayer(player);
-        if (state == null) return;
-
+    public void updateQuiver(Client client, ItemManager itemManager) {
         final ArrayList<Item> quiverItems = new ArrayList<>();
         quiverItems.add(new Item(
                 client.getVarpValue(VarPlayerID.DIZANAS_QUIVER_TEMP_AMMO),
                 client.getVarpValue(VarPlayerID.DIZANAS_QUIVER_TEMP_AMMO_AMOUNT)));
-        state.quiver.update(new ItemsOrdered(quiverItems, itemManager));
+        quiver = new ItemsOrdered(quiverItems, itemManager);
     }
 
-    public void commitSharedBank(String player) {
-        SynchronizedState state = safeGetOrResetIfNewPlayer(player);
-        if (state == null) return;
-
-        state.sharedBank.commitTransaction();
+    public void commitSharedBank() {
+        sharedBank = sharedBankUncommited;
+        sharedBankUncommited = null;
     }
 
     public void onGameTick() {
@@ -134,71 +75,64 @@ public class ItemRepository {
         }
     }
 
-    public void onItemContainerChanged(String player, ItemContainer container) {
-        SynchronizedState state = safeGetOrResetIfNewPlayer(player);
-        if (state == null) return;
+    private void updateDeposited() {
+        final ItemsUnordered depositedEquipment =
+                ItemsUnordered.subtract(equipmentPreDeposit, new ItemsUnordered(equipment));
+        final ItemsUnordered depositedItems =
+                ItemsUnordered.subtract(inventoryPreDeposit, new ItemsUnordered(inventory));
+        deposited = ItemsUnordered.add(depositedEquipment, depositedItems);
+    }
 
+    public void onItemContainerChanged(ItemContainer container, ItemManager itemManager) {
         final int id = container.getId();
 
         if (id == InventoryID.BANK) {
-            state.deposited.reset();
-            state.bank.update(new ItemsUnordered(container, itemManager));
+            deposited = null;
+            bank = new ItemsUnordered(container, itemManager);
 
         } else if (id == InventoryID.SEED_VAULT) {
-            state.seedVault.update(new ItemsUnordered(container, itemManager));
+            seedVault = new ItemsUnordered(container, itemManager);
 
         } else if (id == INVENTORY_ID_COSTUME_ROOM) {
-            state.pohCostumeRoom.update(new ItemsUnordered(container, itemManager));
+            pohCostumeRoom = new ItemsUnordered(container, itemManager);
 
         } else if (id == InventoryID.INV) {
-            ItemsOrdered newInventoryItems = new ItemsOrdered(container, itemManager, CONTAINER_SIZE_INVENTORY);
+            inventory = new ItemsOrdered(container, itemManager, CONTAINER_SIZE_INVENTORY);
             if (gameTicksToLogDeposits > 0) {
-                ItemsOrdered oldInventoryItems = state.inventory.getPreviousState();
-                ItemsUnordered oldDeposited = state.deposited.getPreviousState();
-                ItemsUnordered itemsRemoved = ItemsUnordered.subtract(
-                        new ItemsUnordered(oldInventoryItems), new ItemsUnordered(newInventoryItems));
-                state.deposited.update(ItemsUnordered.add(oldDeposited, itemsRemoved));
+                updateDeposited();
             }
-            state.inventory.update(newInventoryItems);
-
         } else if (id == InventoryID.WORN) {
-            ItemsOrdered newEquipmentItems = new ItemsOrdered(container, itemManager, CONTAINER_SIZE_EQUIPMENT);
+            equipment = new ItemsOrdered(container, itemManager, CONTAINER_SIZE_EQUIPMENT);
             if (gameTicksToLogDeposits > 0) {
-                ItemsOrdered oldEquipmentItems = state.equipment.getPreviousState();
-                ItemsUnordered oldDeposited = state.deposited.getPreviousState();
-                ItemsUnordered itemsRemoved = ItemsUnordered.subtract(
-                        new ItemsUnordered(oldEquipmentItems), new ItemsUnordered(newEquipmentItems));
-                state.deposited.update(ItemsUnordered.add(oldDeposited, itemsRemoved));
+                updateDeposited();
             }
-            state.equipment.update(newEquipmentItems);
-
         } else if (id == InventoryID.INV_GROUP_TEMP) {
-            state.sharedBank.update(new ItemsUnordered(container, itemManager));
+            sharedBankUncommited = new ItemsUnordered(container, itemManager);
         }
     }
 
-    public void itemsMayHaveBeenDeposited(String player) {
-        SynchronizedState state = safeGetOrResetIfNewPlayer(player);
-        if (state == null) return;
-
+    public void itemsMayHaveBeenDeposited() {
+        final boolean isAlreadyChecking = gameTicksToLogDeposits > 0;
+        if (!isAlreadyChecking) {
+            inventoryPreDeposit = new ItemsUnordered(inventory);
+            equipmentPreDeposit = new ItemsUnordered(equipment);
+        }
         gameTicksToLogDeposits = GAME_TICKS_FOR_DEPOSIT_DETECTION;
     }
 
-    public void consumeAllStates(String player, Map<String, Object> updates) {
-        SynchronizedState state = safeGetOrResetIfNewPlayer(player);
-        if (state == null) return;
+    public void flatten(Map<String, APISerializable> flat) {
+        flat.put("inventory", inventory);
+        flat.put("equipment", equipment);
 
-        for (final APIConsumable<?> container : state.getAllContainers()) {
-            container.consumeState(updates);
-        }
-    }
+        flat.put("shared_bank", sharedBank);
 
-    public void restoreAllStates(String player) {
-        SynchronizedState state = safeGetOrResetIfNewPlayer(player);
-        if (state == null) return;
+        flat.put("bank", bank);
+        flat.put("seed_vault", seedVault);
+        flat.put("poh_costume_room", pohCostumeRoom);
 
-        for (final APIConsumable<?> container : state.getAllContainers()) {
-            container.restoreState();
-        }
+        flat.put("rune_pouch", runePouch);
+        flat.put("quiver", quiver);
+
+        flat.put("deposited", deposited);
     }
 }

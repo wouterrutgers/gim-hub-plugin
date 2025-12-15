@@ -1,6 +1,7 @@
 package gimhub;
 
 import com.google.inject.Provides;
+import gimhub.DataManager.PlayerState;
 import gimhub.items.ItemsUtilities;
 import java.time.temporal.ChronoUnit;
 import javax.inject.Inject;
@@ -10,8 +11,8 @@ import net.runelite.api.events.*;
 import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.widgets.Widget;
 import net.runelite.client.config.ConfigManager;
-import net.runelite.client.config.RuneScapeProfileType;
 import net.runelite.client.eventbus.Subscribe;
+import net.runelite.client.game.ItemManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.task.Schedule;
@@ -24,6 +25,9 @@ public class GimHubPlugin extends Plugin {
 
     @Inject
     private DataManager dataManager;
+
+    @Inject
+    private ItemManager itemManager;
 
     @Inject
     private CollectionLogWidgetSubscriber collectionLogWidgetSubscriber;
@@ -52,7 +56,8 @@ public class GimHubPlugin extends Plugin {
 
     @Schedule(period = SECONDS_BETWEEN_UPLOADS, unit = ChronoUnit.SECONDS, asynchronous = true)
     public void submitToApi() {
-        if (doNotUseThisData()) return;
+        PlayerState state = dataManager.getMaybeResetState(client);
+        if (state == null) return;
 
         String playerName = client.getLocalPlayer().getName();
         dataManager.submitToApi(playerName);
@@ -60,119 +65,111 @@ public class GimHubPlugin extends Plugin {
 
     @Schedule(period = SECONDS_BETWEEN_UPLOADS, unit = ChronoUnit.SECONDS)
     public void updateThingsThatDoChangeOften() {
-        if (doNotUseThisData()) return;
+        PlayerState state = dataManager.getMaybeResetState(client);
+        if (state == null) return;
 
-        dataManager.getActivityRepository().updateResources(client);
-        dataManager.getActivityRepository().updateLocation(client);
+        state.activityRepository.updateResources(client);
+        state.activityRepository.updateLocation(client);
 
-        dataManager.getItemRepository().updateRunepouch(client);
-        dataManager.getItemRepository().updateQuiver(client);
+        state.itemRepository.updateRunepouch(client, itemManager);
+        state.itemRepository.updateQuiver(client, itemManager);
     }
 
     @Schedule(period = SECONDS_BETWEEN_INFREQUENT_DATA_CHANGES, unit = ChronoUnit.SECONDS)
     public void updateThingsThatDoNotChangeOften() {
-        if (doNotUseThisData()) return;
+        PlayerState state = dataManager.getMaybeResetState(client);
+        if (state == null) return;
 
-        dataManager.getAchievementRepository().update(client);
+        state.achievementRepository.update(client);
     }
 
     @Subscribe
     public void onVarbitChanged(VarbitChanged event) {
-        if (doNotUseThisData()) return;
+        PlayerState state = dataManager.getMaybeResetState(client);
+        if (state == null) return;
 
         final int varpId = event.getVarpId();
         final int varbitId = event.getVarbitId();
 
         if (ItemsUtilities.isQuiver(varpId)) {
-            dataManager.getItemRepository().updateQuiver(client);
+            state.itemRepository.updateQuiver(client, itemManager);
         }
         if (ItemsUtilities.isRunePouch(varbitId)) {
-            dataManager.getItemRepository().updateRunepouch(client);
+            state.itemRepository.updateRunepouch(client, itemManager);
         }
     }
 
     @Subscribe
     public void onGameTick(GameTick gameTick) {
-        if (doNotUseThisData()) return;
-        String playerName = client.getLocalPlayer().getName();
+        PlayerState state = dataManager.getMaybeResetState(client);
+        if (state == null) return;
 
-        updateInteracting();
+        state.activityRepository.updateInteracting(client);
 
         Widget groupStorageLoaderText =
                 client.getWidget(WIDGET_GROUP_STORAGE_LOADER_PARENT, WIDGET_GROUP_STORAGE_LOADER_TEXT_CHILD);
         if (groupStorageLoaderText != null && groupStorageLoaderText.getText().equalsIgnoreCase("saving...")) {
-            dataManager.getItemRepository().commitSharedBank(playerName);
+            state.itemRepository.commitSharedBank();
         }
 
-        dataManager.getItemRepository().onGameTick();
+        state.itemRepository.onGameTick();
+
+        // It seems onGameTick runs after all other subscribed callbacks, so this is a good spot to stage all the state
+        // changes.
+        dataManager.stageForSubmitToAPI();
     }
 
     @Subscribe
     public void onStatChanged(StatChanged statChanged) {
-        if (doNotUseThisData()) return;
+        PlayerState state = dataManager.getMaybeResetState(client);
+        if (state == null) return;
 
-        dataManager.getActivityRepository().updateSkills(client);
+        state.activityRepository.updateSkills(client);
     }
 
     @Subscribe
     public void onItemContainerChanged(ItemContainerChanged event) {
-        if (doNotUseThisData()) return;
-        String playerName = client.getLocalPlayer().getName();
-        ItemContainer container = event.getItemContainer();
+        PlayerState state = dataManager.getMaybeResetState(client);
+        if (state == null) return;
 
-        dataManager.getItemRepository().onItemContainerChanged(playerName, container);
+        ItemContainer container = event.getItemContainer();
+        state.itemRepository.onItemContainerChanged(container, itemManager);
     }
 
     @Subscribe
     private void onScriptPostFired(ScriptPostFired event) {
-        if (doNotUseThisData()) return;
-        String playerName = client.getLocalPlayer().getName();
+        PlayerState state = dataManager.getMaybeResetState(client);
+        if (state == null) return;
 
         final boolean enteredChatbox = event.getScriptId() == SCRIPT_CHATBOX_ENTERED;
         final boolean depositBoxWidgetIsOpen = client.getWidget(InterfaceID.BankDepositbox.INVENTORY) != null;
         if (enteredChatbox && depositBoxWidgetIsOpen) {
-            dataManager.getItemRepository().itemsMayHaveBeenDeposited(playerName);
+            state.itemRepository.itemsMayHaveBeenDeposited();
         }
     }
 
     @Subscribe
     private void onMenuOptionClicked(MenuOptionClicked event) {
-        if (doNotUseThisData()) return;
-        String playerName = client.getLocalPlayer().getName();
+        PlayerState state = dataManager.getMaybeResetState(client);
+        if (state == null) return;
 
         final int param1 = event.getParam1();
         final MenuAction menuAction = event.getMenuAction();
-        final boolean depositButtonWasClicked = param1 == WIDGET_DEPOSIT_ITEM_BUTTON
-                || param1 == WIDGET_DEPOSIT_INVENTORY_BUTTON
-                || param1 == WIDGET_DEPOSIT_EQUIPMENT_BUTTON;
-        if (menuAction == MenuAction.CC_OP && depositButtonWasClicked) {
-            dataManager.getItemRepository().itemsMayHaveBeenDeposited(playerName);
+        final boolean depositButtonWasClicked = menuAction == MenuAction.CC_OP
+                && (param1 == WIDGET_DEPOSIT_ITEM_BUTTON
+                        || param1 == WIDGET_DEPOSIT_INVENTORY_BUTTON
+                        || param1 == WIDGET_DEPOSIT_EQUIPMENT_BUTTON);
+        if (depositButtonWasClicked) {
+            state.itemRepository.itemsMayHaveBeenDeposited();
         }
     }
 
     @Subscribe
     private void onInteractingChanged(InteractingChanged event) {
-        if (doNotUseThisData()) return;
+        PlayerState state = dataManager.getMaybeResetState(client);
+        if (state == null || event.getSource() != client.getLocalPlayer()) return;
 
-        if (event.getSource() != client.getLocalPlayer()) return;
-        updateInteracting();
-    }
-
-    private void updateInteracting() {
-        dataManager.getActivityRepository().updateInteracting(client);
-    }
-
-    /**
-     * A guard blocking client callbacks that may write invalid state, such as when the player is not logged in to a
-     * main-game profile.
-     */
-    private boolean doNotUseThisData() {
-        boolean isStandardProfile = RuneScapeProfileType.getCurrent(client) == RuneScapeProfileType.STANDARD;
-
-        return client.getGameState() != GameState.LOGGED_IN
-                || client.getLocalPlayer() == null
-                || client.getLocalPlayer().getName() == null
-                || !isStandardProfile;
+        state.activityRepository.updateInteracting(client);
     }
 
     @Provides
