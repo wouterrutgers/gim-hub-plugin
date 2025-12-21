@@ -2,10 +2,12 @@ package gimhub.items.containers;
 
 import gimhub.APISerializable;
 import gimhub.items.ItemsOrdered;
+import lombok.Getter;
 import net.runelite.api.ItemContainer;
 import net.runelite.api.gameval.InventoryID;
 import net.runelite.client.game.ItemManager;
 
+@Getter
 public class EquipmentItems implements TrackedItemContainer {
     public static final int SIZE = 14;
 
@@ -18,10 +20,6 @@ public class EquipmentItems implements TrackedItemContainer {
 
     @Override
     public APISerializable get() {
-        return items;
-    }
-
-    public ItemsOrdered getItems() {
         return items;
     }
 

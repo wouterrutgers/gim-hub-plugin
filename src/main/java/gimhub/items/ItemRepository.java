@@ -19,6 +19,7 @@ public class ItemRepository {
             equipment,
             new SharedBankItems(),
             new BankItems(),
+            new PotionStorageItems(),
             new SeedVaultItems(),
             new PohCostumeRoomItems(),
             new RunePouchItems(),
