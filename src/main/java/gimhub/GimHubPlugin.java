@@ -2,14 +2,12 @@ package gimhub;
 
 import com.google.inject.Provides;
 import gimhub.DataManager.PlayerState;
-import gimhub.items.ItemsUtilities;
 import java.time.temporal.ChronoUnit;
 import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.*;
 import net.runelite.api.events.*;
 import net.runelite.api.gameval.InterfaceID;
-import net.runelite.api.widgets.Widget;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.game.ItemManager;
@@ -39,8 +37,6 @@ public class GimHubPlugin extends Plugin {
     private static final int WIDGET_DEPOSIT_INVENTORY_BUTTON = 12582941;
     private static final int WIDGET_DEPOSIT_EQUIPMENT_BUTTON = 12582942;
     private static final int SCRIPT_CHATBOX_ENTERED = 681;
-    private static final int WIDGET_GROUP_STORAGE_LOADER_PARENT = 293;
-    private static final int WIDGET_GROUP_STORAGE_LOADER_TEXT_CHILD = 1;
 
     @Override
     protected void startUp() throws Exception {
@@ -71,8 +67,7 @@ public class GimHubPlugin extends Plugin {
         state.activityRepository.updateResources(client);
         state.activityRepository.updateLocation(client);
 
-        state.itemRepository.updateRunepouch(client, itemManager);
-        state.itemRepository.updateQuiver(client, itemManager);
+        state.itemRepository.onUpdateOften(client, itemManager);
     }
 
     @Schedule(period = SECONDS_BETWEEN_INFREQUENT_DATA_CHANGES, unit = ChronoUnit.SECONDS)
@@ -91,12 +86,7 @@ public class GimHubPlugin extends Plugin {
         final int varpId = event.getVarpId();
         final int varbitId = event.getVarbitId();
 
-        if (ItemsUtilities.isQuiver(varpId)) {
-            state.itemRepository.updateQuiver(client, itemManager);
-        }
-        if (ItemsUtilities.isRunePouch(varbitId)) {
-            state.itemRepository.updateRunepouch(client, itemManager);
-        }
+        state.itemRepository.onVarbitChanged(client, varpId, varbitId, itemManager);
     }
 
     @Subscribe
@@ -106,13 +96,7 @@ public class GimHubPlugin extends Plugin {
 
         state.activityRepository.updateInteracting(client);
 
-        Widget groupStorageLoaderText =
-                client.getWidget(WIDGET_GROUP_STORAGE_LOADER_PARENT, WIDGET_GROUP_STORAGE_LOADER_TEXT_CHILD);
-        if (groupStorageLoaderText != null && groupStorageLoaderText.getText().equalsIgnoreCase("saving...")) {
-            state.itemRepository.commitSharedBank();
-        }
-
-        state.itemRepository.onGameTick();
+        state.itemRepository.onGameTick(client);
 
         // It seems onGameTick runs after all other subscribed callbacks, so this is a good spot to stage all the state
         // changes.
@@ -144,7 +128,7 @@ public class GimHubPlugin extends Plugin {
         final boolean enteredChatbox = event.getScriptId() == SCRIPT_CHATBOX_ENTERED;
         final boolean depositBoxWidgetIsOpen = client.getWidget(InterfaceID.BankDepositbox.INVENTORY) != null;
         if (enteredChatbox && depositBoxWidgetIsOpen) {
-            state.itemRepository.itemsMayHaveBeenDeposited();
+            state.itemRepository.onDepositTriggered();
         }
     }
 
@@ -160,7 +144,7 @@ public class GimHubPlugin extends Plugin {
                         || param1 == WIDGET_DEPOSIT_INVENTORY_BUTTON
                         || param1 == WIDGET_DEPOSIT_EQUIPMENT_BUTTON);
         if (depositButtonWasClicked) {
-            state.itemRepository.itemsMayHaveBeenDeposited();
+            state.itemRepository.onDepositTriggered();
         }
     }
 

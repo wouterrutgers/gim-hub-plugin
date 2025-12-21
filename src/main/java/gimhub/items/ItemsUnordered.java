@@ -17,7 +17,7 @@ public class ItemsUnordered implements APISerializable {
         this.itemsQuantityByID = new HashMap<>();
     }
 
-    private ItemsUnordered(ItemsUnordered other) {
+    protected ItemsUnordered(ItemsUnordered other) {
         itemsQuantityByID = new HashMap<>(other.itemsQuantityByID);
     }
 
