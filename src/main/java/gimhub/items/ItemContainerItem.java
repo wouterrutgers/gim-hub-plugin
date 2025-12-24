@@ -1,21 +1,17 @@
-package gimhub;
+package gimhub.items;
 
 import lombok.Getter;
 
 public class ItemContainerItem {
     @Getter
-    private final int id;
+    public final int id;
 
     @Getter
-    private int quantity;
+    public final int quantity;
 
-    ItemContainerItem(int id, int quantity) {
+    public ItemContainerItem(int id, int quantity) {
         this.id = id;
         this.quantity = quantity;
-    }
-
-    public void addQuantity(int quantity) {
-        this.quantity += quantity;
     }
 
     @Override
@@ -25,13 +21,5 @@ public class ItemContainerItem {
         ItemContainerItem other = (ItemContainerItem) o;
 
         return other.id == id && other.quantity == quantity;
-    }
-
-    @Override
-    public int hashCode() {
-        int result = Integer.hashCode(id);
-        result = 31 * result + Integer.hashCode(quantity);
-
-        return result;
     }
 }

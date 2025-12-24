@@ -1,15 +1,12 @@
-package gimhub;
+package gimhub.activity;
 
-import lombok.Getter;
+import gimhub.APISerializable;
 import net.runelite.api.Client;
 import net.runelite.api.Skill;
 
-public class ResourcesState implements ConsumableState {
+public class Resources implements APISerializable {
     private static class CurrentMax {
-        @Getter
         private final int current;
-
-        @Getter
         private final int max;
 
         CurrentMax(int current, int max) {
@@ -24,51 +21,36 @@ public class ResourcesState implements ConsumableState {
 
             CurrentMax other = (CurrentMax) o;
 
-            return other.getCurrent() == current && other.getMax() == max;
+            return current == other.current && max == other.max;
         }
     }
 
-    @Getter
     private final CurrentMax hitpoints;
-
-    @Getter
     private final CurrentMax prayer;
-
-    @Getter
     private final CurrentMax energy;
+    private final int world;
 
-    @Getter
-    int world;
-
-    private final transient String playerName;
-
-    ResourcesState(String playerName, Client client) {
-        this.playerName = playerName;
-        hitpoints =
+    Resources(Client client) {
+        this.hitpoints =
                 new CurrentMax(client.getBoostedSkillLevel(Skill.HITPOINTS), client.getRealSkillLevel(Skill.HITPOINTS));
-        prayer = new CurrentMax(client.getBoostedSkillLevel(Skill.PRAYER), client.getRealSkillLevel(Skill.PRAYER));
-        energy = new CurrentMax(client.getEnergy(), 100);
-        world = client.getWorld();
+        this.prayer = new CurrentMax(client.getBoostedSkillLevel(Skill.PRAYER), client.getRealSkillLevel(Skill.PRAYER));
+        this.energy = new CurrentMax(client.getEnergy(), 100);
+        this.world = client.getWorld();
     }
 
     @Override
-    public Object get() {
+    public Object serialize() {
         return new int[] {
             hitpoints.current, hitpoints.max, prayer.current, prayer.max, energy.current, energy.max, world
         };
     }
 
     @Override
-    public String whoOwnsThis() {
-        return playerName;
-    }
-
-    @Override
     public boolean equals(Object o) {
         if (o == this) return true;
-        if (!(o instanceof ResourcesState)) return false;
+        if (!(o instanceof Resources)) return false;
 
-        ResourcesState other = (ResourcesState) o;
+        Resources other = (Resources) o;
 
         return other.world == world
                 && other.hitpoints.equals(hitpoints)

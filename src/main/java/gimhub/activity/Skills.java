@@ -1,25 +1,23 @@
-package gimhub;
+package gimhub.activity;
 
-import java.util.*;
-import lombok.extern.slf4j.Slf4j;
+import gimhub.APISerializable;
+import java.util.HashMap;
+import java.util.Map;
 import net.runelite.api.Client;
 import net.runelite.api.Skill;
 
-@Slf4j
-public class SkillState implements ConsumableState {
+public class Skills implements APISerializable {
     private final Map<String, Integer> skillXpMap;
-    private final transient String playerName;
 
-    public SkillState(String playerName, Client client) {
-        this.playerName = playerName;
-        skillXpMap = new HashMap<>();
+    public Skills(Client client) {
+        this.skillXpMap = new HashMap<>();
         for (Skill skill : Skill.values()) {
             skillXpMap.put(skill.getName(), client.getSkillExperience(skill));
         }
     }
 
     @Override
-    public Object get() {
+    public Object serialize() {
         return new int[] {
             skillXpMap.get("Agility"),
             skillXpMap.get("Attack"),
@@ -49,23 +47,11 @@ public class SkillState implements ConsumableState {
     }
 
     @Override
-    public String whoOwnsThis() {
-        return playerName;
-    }
-
-    @Override
     public boolean equals(Object o) {
         if (o == this) return true;
-        if (!(o instanceof SkillState)) return false;
+        if (!(o instanceof Skills)) return false;
 
-        SkillState other = (SkillState) o;
-        for (Skill skill : Skill.values()) {
-            String skillName = skill.getName();
-            if (!skillXpMap.get(skillName).equals(other.skillXpMap.get(skillName))) {
-                return false;
-            }
-        }
-
-        return true;
+        Skills other = (Skills) o;
+        return skillXpMap.equals(other.skillXpMap);
     }
 }
