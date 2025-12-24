@@ -55,7 +55,7 @@ public class PotionStorageItems implements TrackedItemContainer {
     }
 
     @Override
-    public void onUpdateOften(Client client, ItemManager itemManager) {
+    public void onGameTick(Client client, ItemManager itemManager) {
         if (client.getGameState() != GameState.LOGGED_IN) {
             return;
         }

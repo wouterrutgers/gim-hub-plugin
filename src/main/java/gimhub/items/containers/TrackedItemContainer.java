@@ -14,9 +14,7 @@ public interface TrackedItemContainer {
 
     default void onVarbitChanged(Client client, int varpId, int varbitId, ItemManager itemManager) {}
 
-    default void onGameTick(Client client) {}
-
-    default void onUpdateOften(Client client, ItemManager itemManager) {}
+    default void onGameTick(Client client, ItemManager itemManager) {}
 
     default void onDepositTriggered() {}
 }

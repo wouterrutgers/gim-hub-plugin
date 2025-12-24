@@ -59,17 +59,6 @@ public class GimHubPlugin extends Plugin {
         dataManager.submitToApi(playerName);
     }
 
-    @Schedule(period = SECONDS_BETWEEN_UPLOADS, unit = ChronoUnit.SECONDS)
-    public void updateThingsThatDoChangeOften() {
-        PlayerState state = dataManager.getMaybeResetState(client);
-        if (state == null) return;
-
-        state.activityRepository.updateResources(client);
-        state.activityRepository.updateLocation(client);
-
-        state.itemRepository.onUpdateOften(client, itemManager);
-    }
-
     @Schedule(period = SECONDS_BETWEEN_INFREQUENT_DATA_CHANGES, unit = ChronoUnit.SECONDS)
     public void updateThingsThatDoNotChangeOften() {
         PlayerState state = dataManager.getMaybeResetState(client);
@@ -95,8 +84,10 @@ public class GimHubPlugin extends Plugin {
         if (state == null) return;
 
         state.activityRepository.updateInteracting(client);
+        state.activityRepository.updateResources(client);
+        state.activityRepository.updateLocation(client);
 
-        state.itemRepository.onGameTick(client);
+        state.itemRepository.onGameTick(client, itemManager);
 
         // It seems onGameTick runs after all other subscribed callbacks, so this is a good spot to stage all the state
         // changes.

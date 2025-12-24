@@ -33,7 +33,7 @@ public class SharedBankItems implements TrackedItemContainer {
     }
 
     @Override
-    public void onGameTick(Client client) {
+    public void onGameTick(Client client, ItemManager itemManager) {
         Widget groupStorageLoaderText =
                 client.getWidget(WIDGET_GROUP_STORAGE_LOADER_PARENT, WIDGET_GROUP_STORAGE_LOADER_TEXT_CHILD);
         if (groupStorageLoaderText != null && groupStorageLoaderText.getText().equalsIgnoreCase("saving...")) {

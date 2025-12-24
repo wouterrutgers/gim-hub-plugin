@@ -46,7 +46,7 @@ public class DepositedItems implements TrackedItemContainer {
     }
 
     @Override
-    public void onGameTick(Client client) {
+    public void onGameTick(Client client, ItemManager itemManager) {
         if (gameTicksToLogDeposits > 0) {
             --gameTicksToLogDeposits;
         }

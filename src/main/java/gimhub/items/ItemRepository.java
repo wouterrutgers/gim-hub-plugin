@@ -40,15 +40,9 @@ public class ItemRepository {
         }
     }
 
-    public void onUpdateOften(Client client, ItemManager itemManager) {
+    public void onGameTick(Client client, ItemManager itemManager) {
         for (TrackedItemContainer tracked : containers) {
-            tracked.onUpdateOften(client, itemManager);
-        }
-    }
-
-    public void onGameTick(Client client) {
-        for (TrackedItemContainer tracked : containers) {
-            tracked.onGameTick(client);
+            tracked.onGameTick(client, itemManager);
         }
     }
 
