@@ -6,7 +6,6 @@ import java.util.ArrayList;
 import java.util.Map;
 import net.runelite.api.Client;
 import net.runelite.api.Item;
-import net.runelite.api.gameval.VarPlayerID;
 import net.runelite.api.gameval.VarbitID;
 import net.runelite.client.game.ItemManager;
 
@@ -30,10 +29,6 @@ public class PlankSackItems implements TrackedItemContainer {
     @Override
     public APISerializable get() {
         return items;
-    }
-
-    private static boolean isRelevantVarp(int varpId) {
-        return varpId == VarPlayerID.DIZANAS_QUIVER_TEMP_AMMO || varpId == VarPlayerID.DIZANAS_QUIVER_TEMP_AMMO_AMOUNT;
     }
 
     private void update(Client client, ItemManager itemManager) {
