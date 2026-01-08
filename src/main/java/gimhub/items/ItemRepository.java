@@ -25,6 +25,7 @@ public class ItemRepository {
             new RunePouchItems(),
             new QuiverItems(),
             new PlankSackItems(),
+            new MasterScrollBookItems(),
             new DepositedItems(inventory, equipment),
         };
     }
