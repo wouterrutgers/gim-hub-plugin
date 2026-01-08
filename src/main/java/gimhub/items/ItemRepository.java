@@ -24,6 +24,7 @@ public class ItemRepository {
             new PohCostumeRoomItems(),
             new RunePouchItems(),
             new QuiverItems(),
+            new PlankSackItems(),
             new DepositedItems(inventory, equipment),
         };
     }
