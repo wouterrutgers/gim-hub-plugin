@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.Map;
 import net.runelite.api.Client;
 import net.runelite.api.Item;
+import net.runelite.api.gameval.ItemID;
 import net.runelite.api.gameval.VarbitID;
 import net.runelite.client.game.ItemManager;
 
@@ -13,13 +14,13 @@ public class PlankSackItems implements TrackedItemContainer {
     private ItemsOrdered items = null;
 
     private static final Map<Integer, Integer> PLANK_VARBIT_ID_TO_ITEM_ID = Map.ofEntries(
-            Map.entry(VarbitID.PLANK_SACK_PLAIN, 960),
-            Map.entry(VarbitID.PLANK_SACK_OAK, 8778),
-            Map.entry(VarbitID.PLANK_SACK_TEAK, 8780),
-            Map.entry(VarbitID.PLANK_SACK_MAHOGANY, 8782),
-            Map.entry(VarbitID.PLANK_SACK_CAMPHOR, 31432),
-            Map.entry(VarbitID.PLANK_SACK_IRONWOOD, 31435),
-            Map.entry(VarbitID.PLANK_SACK_ROSEWOOD, 31438));
+            Map.entry(VarbitID.PLANK_SACK_PLAIN, ItemID.WOODPLANK),
+            Map.entry(VarbitID.PLANK_SACK_OAK, ItemID.PLANK_OAK),
+            Map.entry(VarbitID.PLANK_SACK_TEAK, ItemID.PLANK_TEAK),
+            Map.entry(VarbitID.PLANK_SACK_MAHOGANY, ItemID.PLANK_MAHOGANY),
+            Map.entry(VarbitID.PLANK_SACK_CAMPHOR, ItemID.PLANK_CAMPHOR),
+            Map.entry(VarbitID.PLANK_SACK_IRONWOOD, ItemID.PLANK_IRONWOOD),
+            Map.entry(VarbitID.PLANK_SACK_ROSEWOOD, ItemID.PLANK_ROSEWOOD));
 
     @Override
     public String key() {

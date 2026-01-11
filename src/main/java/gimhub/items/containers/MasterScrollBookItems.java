@@ -7,6 +7,7 @@ import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
 import net.runelite.api.Item;
+import net.runelite.api.gameval.ItemID;
 import net.runelite.api.gameval.VarbitID;
 import net.runelite.client.game.ItemManager;
 
@@ -15,25 +16,25 @@ public class MasterScrollBookItems implements TrackedItemContainer {
     private ItemsOrdered items = null;
 
     private static final Map<Integer, Integer> SCROLL_VARBIT_ID_TO_ITEM_ID = Map.ofEntries(
-            Map.entry(VarbitID.BOOKOFSCROLLS_NARDAH, 12402),
-            Map.entry(VarbitID.BOOKOFSCROLLS_DIGSITE, 12403),
-            Map.entry(VarbitID.BOOKOFSCROLLS_FELDIP, 12404),
-            Map.entry(VarbitID.BOOKOFSCROLLS_LUNARISLE, 12405),
-            Map.entry(VarbitID.BOOKOFSCROLLS_MORTTON, 12406),
-            Map.entry(VarbitID.BOOKOFSCROLLS_PESTCONTROL, 12407),
-            Map.entry(VarbitID.BOOKOFSCROLLS_PISCATORIS, 12408),
-            Map.entry(VarbitID.BOOKOFSCROLLS_TAIBWO, 12409),
-            Map.entry(VarbitID.BOOKOFSCROLLS_ELF, 12410),
-            Map.entry(VarbitID.BOOKOFSCROLLS_MOSLES, 12411),
-            Map.entry(VarbitID.BOOKOFSCROLLS_LUMBERYARD, 12642),
-            Map.entry(VarbitID.BOOKOFSCROLLS_ZULANDRA, 12938),
-            Map.entry(VarbitID.BOOKOFSCROLLS_CERBERUS, 13249),
-            Map.entry(VarbitID.BOOKOFSCROLLS_REVENANTS, 21802),
-            Map.entry(VarbitID.BOOKOFSCROLLS_WATSON_HIGHBITS, 23387),
-            Map.entry(VarbitID.BOOKOFSCROLLS_GUTHIXIAN_TEMPLE, 29684),
-            Map.entry(VarbitID.BOOKOFSCROLLS_SPIDERCAVE, 29782),
-            Map.entry(VarbitID.BOOKOFSCROLLS_COLOSSAL_WYRM, 30040),
-            Map.entry(VarbitID.BOOKOFSCROLLS_CHASMOFFIRE, 30775));
+            Map.entry(VarbitID.BOOKOFSCROLLS_NARDAH, ItemID.TELEPORTSCROLL_NARDAH),
+            Map.entry(VarbitID.BOOKOFSCROLLS_DIGSITE, ItemID.TELEPORTSCROLL_DIGSITE),
+            Map.entry(VarbitID.BOOKOFSCROLLS_FELDIP, ItemID.TELEPORTSCROLL_FELDIP),
+            Map.entry(VarbitID.BOOKOFSCROLLS_LUNARISLE, ItemID.TELEPORTSCROLL_LUNARISLE),
+            Map.entry(VarbitID.BOOKOFSCROLLS_MORTTON, ItemID.TELEPORTSCROLL_MORTTON),
+            Map.entry(VarbitID.BOOKOFSCROLLS_PESTCONTROL, ItemID.TELEPORTSCROLL_PESTCONTROL),
+            Map.entry(VarbitID.BOOKOFSCROLLS_PISCATORIS, ItemID.TELEPORTSCROLL_PISCATORIS),
+            Map.entry(VarbitID.BOOKOFSCROLLS_TAIBWO, ItemID.TELEPORTSCROLL_TAIBWO),
+            Map.entry(VarbitID.BOOKOFSCROLLS_ELF, ItemID.TELEPORTSCROLL_ELF),
+            Map.entry(VarbitID.BOOKOFSCROLLS_MOSLES, ItemID.TELEPORTSCROLL_MOSLES),
+            Map.entry(VarbitID.BOOKOFSCROLLS_LUMBERYARD, ItemID.TELEPORTSCROLL_LUMBERYARD),
+            Map.entry(VarbitID.BOOKOFSCROLLS_ZULANDRA, ItemID.TELEPORTSCROLL_ZULANDRA),
+            Map.entry(VarbitID.BOOKOFSCROLLS_CERBERUS, ItemID.TELEPORTSCROLL_CERBERUS),
+            Map.entry(VarbitID.BOOKOFSCROLLS_REVENANTS, ItemID.TELEPORTSCROLL_REVENANTS),
+            Map.entry(VarbitID.BOOKOFSCROLLS_WATSON_HIGHBITS, ItemID.TELEPORTSCROLL_WATSON),
+            Map.entry(VarbitID.BOOKOFSCROLLS_GUTHIXIAN_TEMPLE, ItemID.TELEPORTSCROLL_GUTHIXIAN_TEMPLE),
+            Map.entry(VarbitID.BOOKOFSCROLLS_SPIDERCAVE, ItemID.TELEPORTSCROLL_SPIDERCAVE),
+            Map.entry(VarbitID.BOOKOFSCROLLS_COLOSSAL_WYRM, ItemID.TELEPORTSCROLL_COLOSSAL_WYRM),
+            Map.entry(VarbitID.BOOKOFSCROLLS_CHASMOFFIRE, ItemID.TELEPORTSCROLL_CHASMOFFIRE));
 
     @Override
     public String key() {
