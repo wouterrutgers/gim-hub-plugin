@@ -26,6 +26,7 @@ public class ItemRepository {
             new QuiverItems(),
             new PlankSackItems(),
             new MasterScrollBookItems(),
+            new EssencePouchesItems(),
             new DepositedItems(inventory, equipment),
         };
     }
