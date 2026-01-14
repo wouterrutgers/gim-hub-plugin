@@ -145,14 +145,10 @@ public class ItemRepository {
             for (int idx = 0; idx < itemOpQueue.size(); idx++) {
                 final TrackedItemOperation containerOperation = itemOpQueue.get(idx);
 
-                final boolean isBankDeposit = containerOperation.itemOp == null;
+                final boolean isBankDeposit = containerOperation.container.equals(bank);
 
                 final ItemsUnordered attributableInventoryDifference =
                         ItemsUnordered.filter(inventoryDifference, (itemID, quantity) -> {
-                            if (isBankDeposit) {
-                                return Math.max(quantity, 0);
-                            }
-
                             switch (containerOperation.itemOp) {
                                 case FILL:
                                     // We are filling a container, so only positive changes are possible
@@ -165,10 +161,17 @@ public class ItemRepository {
                         });
                 final ItemsUnordered attributableEquipmentDifference =
                         ItemsUnordered.filter(equipmentDifference, (itemID, quantity) -> {
-                            if (isBankDeposit) {
-                                return Math.max(quantity, 0);
+                            if (!isBankDeposit) {
+                                return 0;
                             }
-
+                            switch (containerOperation.itemOp) {
+                                case FILL:
+                                    // We are filling a container, so only positive changes are possible
+                                    return Math.max(quantity, 0);
+                                case EMPTY:
+                                    // We are emptying a container, so only negative changes are possible.
+                                    return Math.min(quantity, 0);
+                            }
                             return 0;
                         });
                 if (attributableEquipmentDifference.isEmpty() && attributableInventoryDifference.isEmpty()) continue;
