@@ -2,6 +2,7 @@ package gimhub.items;
 
 import gimhub.APISerializable;
 import java.util.*;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
@@ -19,6 +20,10 @@ public class ItemsUnordered implements APISerializable {
 
     protected ItemsUnordered(ItemsUnordered other) {
         itemsQuantityByID = new HashMap<>(other.itemsQuantityByID);
+    }
+
+    public boolean isEmpty() {
+        return itemsQuantityByID.isEmpty();
     }
 
     public ItemsUnordered(ItemsOrdered items) {
@@ -71,6 +76,10 @@ public class ItemsUnordered implements APISerializable {
             final int quantity =
                     left.itemsQuantityByID.getOrDefault(itemID, 0) + right.itemsQuantityByID.getOrDefault(itemID, 0);
 
+            if (quantity == 0) {
+                continue;
+            }
+
             result.itemsQuantityByID.put(itemID, quantity);
         }
 
@@ -88,22 +97,42 @@ public class ItemsUnordered implements APISerializable {
 
         ItemsUnordered result = new ItemsUnordered();
 
-        // Only the keys in the LHS matter, since otherwise the subtraction is always negative.
-        for (final Map.Entry<Integer, Integer> entry : left.itemsQuantityByID.entrySet()) {
-            final int itemID = entry.getKey();
+        final Set<Integer> allKeys = Stream.concat(
+                        left.itemsQuantityByID.keySet().stream(), right.itemsQuantityByID.keySet().stream())
+                .collect(Collectors.toSet());
+        for (final Integer itemID : allKeys) {
             if (itemID <= 0) {
                 continue;
             }
 
-            final int lhs = entry.getValue();
+            final int lhs = left.itemsQuantityByID.getOrDefault(itemID, 0);
             final int rhs = right.itemsQuantityByID.getOrDefault(itemID, 0);
 
             final int subtraction = lhs - rhs;
-            if (subtraction <= 0) {
+            if (subtraction == 0) {
                 continue;
             }
 
             result.itemsQuantityByID.put(itemID, subtraction);
+        }
+
+        return result;
+    }
+
+    public static ItemsUnordered filter(ItemsUnordered items, BiFunction<Integer, Integer, Integer> filter) {
+        ItemsUnordered result = new ItemsUnordered();
+
+        for (final Map.Entry<Integer, Integer> entry : items.itemsQuantityByID.entrySet()) {
+            final int itemID = entry.getKey();
+            final int quantity = entry.getValue();
+
+            final int quantityFiltered = filter.apply(itemID, quantity);
+
+            if (quantityFiltered == 0) {
+                continue;
+            }
+
+            result.itemsQuantityByID.put(itemID, quantityFiltered);
         }
 
         return result;
@@ -114,7 +143,7 @@ public class ItemsUnordered implements APISerializable {
 
         for (final Map.Entry<Integer, Integer> entry : itemsQuantityByID.entrySet()) {
             result.add(entry.getKey());
-            result.add(entry.getValue());
+            result.add(Math.max(0, entry.getValue()));
         }
 
         return result;

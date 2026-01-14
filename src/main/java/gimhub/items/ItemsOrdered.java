@@ -51,7 +51,7 @@ public class ItemsOrdered implements APISerializable {
 
         for (ItemContainerItem item : items) {
             result.add(item.getId());
-            result.add(item.getQuantity());
+            result.add(Math.max(0, item.getQuantity()));
         }
 
         return result;

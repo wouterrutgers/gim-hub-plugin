@@ -119,7 +119,7 @@ public class GimHubPlugin extends Plugin {
         final boolean enteredChatbox = event.getScriptId() == SCRIPT_CHATBOX_ENTERED;
         final boolean depositBoxWidgetIsOpen = client.getWidget(InterfaceID.BankDepositbox.INVENTORY) != null;
         if (enteredChatbox && depositBoxWidgetIsOpen) {
-            state.itemRepository.onDepositTriggered();
+            state.itemRepository.onDepositTriggered(client.getTickCount());
         }
     }
 
@@ -128,6 +128,16 @@ public class GimHubPlugin extends Plugin {
         PlayerState state = dataManager.getMaybeResetState(client);
         if (state == null) return;
 
+        final MenuEntry entry = event.getMenuEntry();
+        if (entry != null) {
+            final int itemId = entry.getItemId();
+            final int itemOp = entry.getItemOp();
+
+            if (itemOp >= 0) {
+                state.itemRepository.onInventoryItemClicked(client.getTickCount(), itemId, itemOp);
+            }
+        }
+
         final int param1 = event.getParam1();
         final MenuAction menuAction = event.getMenuAction();
         final boolean depositButtonWasClicked = menuAction == MenuAction.CC_OP
@@ -135,7 +145,7 @@ public class GimHubPlugin extends Plugin {
                         || param1 == WIDGET_DEPOSIT_INVENTORY_BUTTON
                         || param1 == WIDGET_DEPOSIT_EQUIPMENT_BUTTON);
         if (depositButtonWasClicked) {
-            state.itemRepository.onDepositTriggered();
+            state.itemRepository.onDepositTriggered(client.getTickCount());
         }
     }
 

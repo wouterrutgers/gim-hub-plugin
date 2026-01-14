@@ -25,4 +25,12 @@ public class BankItems implements TrackedItemContainer {
             items = new ItemsUnordered(container, itemManager);
         }
     }
+
+    @Override
+    public ItemsUnordered modify(ItemsUnordered itemsToDeposit) {
+        items = ItemsUnordered.add(items, itemsToDeposit);
+        final ItemsUnordered overage = ItemsUnordered.filter(items, (itemID, quantity) -> Math.min(quantity, 0));
+        items = ItemsUnordered.subtract(items, overage);
+        return overage;
+    }
 }
