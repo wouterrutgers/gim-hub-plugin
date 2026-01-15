@@ -3,13 +3,11 @@ package gimhub.items.containers;
 import gimhub.APISerializable;
 import gimhub.items.ItemsUnordered;
 import java.util.Set;
-import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.ItemContainer;
 import net.runelite.api.gameval.InventoryID;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.client.game.ItemManager;
 
-@Slf4j
 public class TackleBoxItems implements TrackedItemContainer {
     private ItemsUnordered items = null;
 
@@ -94,7 +92,8 @@ public class TackleBoxItems implements TrackedItemContainer {
             ItemID.CANDLE_LANTERN_LIT // white candle variant
             );
 
-    private final ItemContainerInterface ITEM_INTERFACE = new ItemContainerInterface(ItemID.TACKLE_BOX, 1, 2, 3);
+    private final ItemContainerInterface ITEM_INTERFACE =
+            new ItemContainerInterface(Set.of(ItemID.TACKLE_BOX), 1, 2, 3);
 
     @Override
     public ItemContainerInterface itemContainerInterface() {

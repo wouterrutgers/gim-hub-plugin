@@ -45,6 +45,7 @@ public class ItemRepository {
             new MasterScrollBookItems(),
             new EssencePouchesItems(),
             new TackleBoxItems(),
+            new CoalBagItems(),
         };
 
         containersControlledByItem = new HashMap<>();
@@ -52,19 +53,21 @@ public class ItemRepository {
             final ItemContainerInterface item = container.itemContainerInterface();
             if (item == null) continue;
 
-            if (containersControlledByItem.containsKey(item.itemID)) {
-                log.error("Found duplicate container itemID: {}", item.itemID);
-                continue;
-            }
+            for (final int itemID : item.itemIDs) {
+                if (containersControlledByItem.containsKey(itemID)) {
+                    log.error("Found duplicate container itemID: {}", itemID);
+                    continue;
+                }
 
-            if (Objects.equals(item.fillItemOp, item.emptyItemOp)
-                    || Objects.equals(item.fillItemOp, item.viewItemOp)
-                    || Objects.equals(item.emptyItemOp, item.viewItemOp)) {
-                log.error("Colliding ops for container of itemID: {}", item.itemID);
-                continue;
-            }
+                if (Objects.equals(item.fillItemOp, item.emptyItemOp)
+                        || Objects.equals(item.fillItemOp, item.viewItemOp)
+                        || Objects.equals(item.emptyItemOp, item.viewItemOp)) {
+                    log.error("Colliding ops for container of itemID: {}", itemID);
+                    continue;
+                }
 
-            containersControlledByItem.put(item.itemID, container);
+                containersControlledByItem.put(itemID, container);
+            }
         }
 
         itemOpQueue = new ArrayList<>();
