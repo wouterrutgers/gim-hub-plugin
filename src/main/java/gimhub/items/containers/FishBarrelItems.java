@@ -52,13 +52,16 @@ public class FishBarrelItems implements TrackedItemContainer {
             Map.entry("cod", ItemID.RAW_COD),
             Map.entry("pike", ItemID.RAW_PIKE),
             Map.entry("slimy swamp eel", ItemID.MORT_SLIMEY_EEL),
+            Map.entry("slimy eel", ItemID.MORT_SLIMEY_EEL),
             Map.entry("salmon", ItemID.RAW_SALMON),
             Map.entry("tuna", ItemID.RAW_TUNA),
+            Map.entry("rainbow fish", ItemID.HUNTING_RAW_FISH_SPECIAL),
             Map.entry("cave eel", ItemID.RAW_CAVE_EEL),
             Map.entry("lobster", ItemID.RAW_LOBSTER),
             Map.entry("bass", ItemID.RAW_BASS),
             Map.entry("leaping trout", ItemID.BRUT_SPAWNING_TROUT),
             Map.entry("swordfish", ItemID.RAW_SWORDFISH),
+            Map.entry("swordtip squid", ItemID.RAW_SWORDTIP_SQUID),
             Map.entry("lava eel", ItemID.RAW_LAVA_EEL),
             Map.entry("leaping salmon", ItemID.BRUT_SPAWNING_SALMON),
             Map.entry("monkfish", ItemID.RAW_MONKFISH),
@@ -69,7 +72,19 @@ public class FishBarrelItems implements TrackedItemContainer {
             Map.entry("dark crab", ItemID.RAW_DARK_CRAB),
             Map.entry("sacred eel", ItemID.SNAKEBOSS_EEL),
             Map.entry("sea turtle", ItemID.RAW_SEATURTLE),
-            Map.entry("manta ray", ItemID.RAW_MANTARAY));
+            Map.entry("manta ray", ItemID.RAW_MANTARAY),
+            Map.entry("jumbo squid", ItemID.RAW_JUMBO_SQUID),
+            Map.entry("giant krill", ItemID.RAW_GIANT_KRILL),
+            Map.entry("haddock", ItemID.RAW_HADDOCK),
+            Map.entry("yellowfin", ItemID.RAW_YELLOWFIN),
+            Map.entry("halibut", ItemID.RAW_HALIBUT),
+            Map.entry("bluefin", ItemID.RAW_BLUEFIN),
+            Map.entry("marlin", ItemID.RAW_MARLIN),
+            Map.entry("guppy", ItemID.RAW_GUPPY),
+            Map.entry("cavefish", ItemID.RAW_CAVEFISH),
+            Map.entry("tetra", ItemID.RAW_TETRA),
+            Map.entry("catfish", ItemID.RAW_CATFISH),
+            Map.entry("giant carp", ItemID.RAW_GIANT_CARP));
 
     private static final Set<Integer> ALL_FISH_IDS = Set.copyOf(FISH_TYPES_BY_NAME.values());
 
@@ -274,7 +289,8 @@ public class FishBarrelItems implements TrackedItemContainer {
             final boolean depositBoxOpen = client.getWidget(InterfaceID.BankDepositbox.INVENTORY) != null;
             final boolean mainBankOpen = client.getItemContainer(InventoryID.BANK) != null;
 
-            final boolean shouldCreditBank = "Empty to bank".equalsIgnoreCase(option) || (depositBoxOpen && "Empty".equalsIgnoreCase(option));
+            final boolean shouldCreditBank =
+                    "Empty to bank".equalsIgnoreCase(option) || (depositBoxOpen && "Empty".equalsIgnoreCase(option));
             if (shouldCreditBank && !mainBankOpen && bank != null && known && items != null) {
                 bank.modify(items);
             }
@@ -338,7 +354,8 @@ public class FishBarrelItems implements TrackedItemContainer {
 
             if (recentlyActioned(lastFillTick, tick)) {
                 for (final int fishId : ALL_FISH_IDS) {
-                    final int removed = Math.max(0, inventoryFishPrev.getOrDefault(fishId, 0) - inventoryFish.getOrDefault(fishId, 0));
+                    final int removed = Math.max(
+                            0, inventoryFishPrev.getOrDefault(fishId, 0) - inventoryFish.getOrDefault(fishId, 0));
                     if (removed > 0) {
                         addToBarrel(fishId, removed, itemManager);
                     }
@@ -349,7 +366,8 @@ public class FishBarrelItems implements TrackedItemContainer {
                 final int fishId = e.getKey();
                 final int caught = e.getValue();
 
-                final int invDelta = Math.max(0, inventoryFish.getOrDefault(fishId, 0) - inventoryFishPrev.getOrDefault(fishId, 0));
+                final int invDelta =
+                        Math.max(0, inventoryFish.getOrDefault(fishId, 0) - inventoryFishPrev.getOrDefault(fishId, 0));
                 final int toBarrel = caught - Math.min(caught, invDelta);
                 if (toBarrel > 0) {
                     addToBarrel(fishId, toBarrel, itemManager);
