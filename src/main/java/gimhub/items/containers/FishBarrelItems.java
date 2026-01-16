@@ -41,7 +41,11 @@ public class FishBarrelItems implements TrackedItemContainer {
     private static final String FLAKES_DOUBLE_CATCH_MESSAGE = "The spirit flakes enabled you to catch an extra fish.";
     private static final String CORMORANT_CATCH_MESSAGE = "Your cormorant returns with its catch.";
 
-    private static final Set<Integer> BARREL_IDS = Set.of(ItemID.FISH_BARREL_CLOSED, ItemID.FISH_BARREL_OPEN, 25583);
+    private static final Set<Integer> BARREL_IDS = Set.of(
+            ItemID.FISH_BARREL_CLOSED,
+            ItemID.FISH_BARREL_OPEN,
+            ItemID.FISH_SACK_BARREL_CLOSED,
+            ItemID.FISH_SACK_BARREL_OPEN);
 
     private static final Map<String, Integer> FISH_TYPES_BY_NAME = Map.ofEntries(
             Map.entry("shrimp", ItemID.RAW_SHRIMP),
