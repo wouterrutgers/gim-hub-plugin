@@ -95,6 +95,14 @@ public class GimHubPlugin extends Plugin {
     }
 
     @Subscribe
+    public void onChatMessage(ChatMessage event) {
+        PlayerState state = dataManager.getMaybeResetState(client);
+        if (state == null) return;
+
+        state.itemRepository.onChatMessage(client, event, itemManager);
+    }
+
+    @Subscribe
     public void onStatChanged(StatChanged statChanged) {
         PlayerState state = dataManager.getMaybeResetState(client);
         if (state == null) return;
@@ -137,6 +145,8 @@ public class GimHubPlugin extends Plugin {
                 state.itemRepository.onInventoryItemClicked(client.getTickCount(), itemId, itemOp);
             }
         }
+
+        state.itemRepository.onMenuOptionClicked(client, event, itemManager);
 
         final int param1 = event.getParam1();
         final MenuAction menuAction = event.getMenuAction();

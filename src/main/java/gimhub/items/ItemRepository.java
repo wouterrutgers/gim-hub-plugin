@@ -8,6 +8,8 @@ import java.util.stream.IntStream;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
 import net.runelite.api.ItemContainer;
+import net.runelite.api.events.ChatMessage;
+import net.runelite.api.events.MenuOptionClicked;
 import net.runelite.client.game.ItemManager;
 
 @Slf4j
@@ -30,6 +32,8 @@ public class ItemRepository {
         bank = new BankItems();
         inventory = new InventoryItems();
         equipment = new EquipmentItems();
+        FishBarrelItems fishBarrel = new FishBarrelItems();
+        fishBarrel.setBank(bank);
 
         containers = new TrackedItemContainer[] {
             bank,
@@ -45,6 +49,7 @@ public class ItemRepository {
             new MasterScrollBookItems(),
             new EssencePouchesItems(),
             new TackleBoxItems(),
+            fishBarrel,
             new CoalBagItems(),
         };
 
@@ -121,6 +126,18 @@ public class ItemRepository {
     public void onVarbitChanged(Client client, int varpId, int varbitId, ItemManager itemManager) {
         for (TrackedItemContainer tracked : containers) {
             tracked.onVarbitChanged(client, varpId, varbitId, itemManager);
+        }
+    }
+
+    public void onChatMessage(Client client, ChatMessage event, ItemManager itemManager) {
+        for (TrackedItemContainer tracked : containers) {
+            tracked.onChatMessage(client, event, itemManager);
+        }
+    }
+
+    public void onMenuOptionClicked(Client client, MenuOptionClicked event, ItemManager itemManager) {
+        for (TrackedItemContainer tracked : containers) {
+            tracked.onMenuOptionClicked(client, event, itemManager);
         }
     }
 
