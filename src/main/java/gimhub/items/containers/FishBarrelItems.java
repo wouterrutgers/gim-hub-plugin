@@ -10,6 +10,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import lombok.Setter;
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
 import net.runelite.api.Item;
@@ -102,11 +104,8 @@ public class FishBarrelItems implements TrackedItemContainer {
     private int lastFillTick = -999;
     private int lastEmptyTick = -999;
 
+    @Setter
     private BankItems bank;
-
-    public void setBank(BankItems bank) {
-        this.bank = bank;
-    }
 
     @Override
     public String key() {
