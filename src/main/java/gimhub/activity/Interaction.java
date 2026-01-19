@@ -13,8 +13,19 @@ public class Interaction implements APISerializable {
 
     private final transient int tick;
 
+    private static String sanitizeText(String text) {
+        if (text == null) {
+            return "";
+        }
+
+        return text.replaceAll("(?i)<br\\s*/?>", " ")
+                .replaceAll("<[^>]+>", "")
+                .replaceAll("\\s+", " ")
+                .trim();
+    }
+
     public Interaction(Actor actor, Client client) {
-        this.name = actor.getName();
+        this.name = sanitizeText(actor.getName());
         this.scale = actor.getHealthScale();
         this.ratio = actor.getHealthRatio();
 
