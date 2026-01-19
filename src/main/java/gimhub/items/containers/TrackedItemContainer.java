@@ -7,6 +7,7 @@ import net.runelite.api.Client;
 import net.runelite.api.ItemContainer;
 import net.runelite.api.events.ChatMessage;
 import net.runelite.api.events.MenuOptionClicked;
+import net.runelite.api.events.StatChanged;
 import net.runelite.client.game.ItemManager;
 
 public interface TrackedItemContainer {
@@ -23,6 +24,8 @@ public interface TrackedItemContainer {
     default void onMenuOptionClicked(Client client, MenuOptionClicked event, ItemManager itemManager) {}
 
     default void onGameTick(Client client, ItemManager itemManager) {}
+
+    default void onStatChanged(StatChanged event, ItemManager itemManager) {}
 
     @Nullable default ItemContainerInterface itemContainerInterface() {
         return null;

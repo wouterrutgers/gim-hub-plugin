@@ -10,6 +10,7 @@ import net.runelite.api.Client;
 import net.runelite.api.ItemContainer;
 import net.runelite.api.events.ChatMessage;
 import net.runelite.api.events.MenuOptionClicked;
+import net.runelite.api.events.StatChanged;
 import net.runelite.client.game.ItemManager;
 
 @Slf4j
@@ -102,6 +103,12 @@ public class ItemRepository {
     public void onItemContainerChanged(ItemContainer container, ItemManager itemManager) {
         for (TrackedItemContainer tracked : containers) {
             tracked.onItemContainerChanged(container, itemManager);
+        }
+    }
+
+    public void onStatChanged(StatChanged event, ItemManager itemManager) {
+        for (TrackedItemContainer tracked : containers) {
+            tracked.onStatChanged(event, itemManager);
         }
     }
 

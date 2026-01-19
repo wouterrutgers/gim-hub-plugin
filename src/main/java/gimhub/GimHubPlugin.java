@@ -103,10 +103,11 @@ public class GimHubPlugin extends Plugin {
     }
 
     @Subscribe
-    public void onStatChanged(StatChanged statChanged) {
+    private void onStatChanged(StatChanged event) {
         PlayerState state = dataManager.getMaybeResetState(client);
         if (state == null) return;
 
+        state.itemRepository.onStatChanged(event, itemManager);
         state.activityRepository.updateSkills(client);
     }
 
