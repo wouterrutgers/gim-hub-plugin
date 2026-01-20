@@ -7,7 +7,6 @@ import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.*;
 import net.runelite.api.events.*;
-import net.runelite.api.gameval.InterfaceID;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.game.ItemManager;
@@ -121,43 +120,11 @@ public class GimHubPlugin extends Plugin {
     }
 
     @Subscribe
-    private void onScriptPostFired(ScriptPostFired event) {
-        PlayerState state = dataManager.getMaybeResetState(client);
-        if (state == null) return;
-
-        final boolean enteredChatbox = event.getScriptId() == SCRIPT_CHATBOX_ENTERED;
-        final boolean depositBoxWidgetIsOpen = client.getWidget(InterfaceID.BankDepositbox.INVENTORY) != null;
-        if (enteredChatbox && depositBoxWidgetIsOpen) {
-            state.itemRepository.onDepositTriggered(client.getTickCount());
-        }
-    }
-
-    @Subscribe
     private void onMenuOptionClicked(MenuOptionClicked event) {
         PlayerState state = dataManager.getMaybeResetState(client);
         if (state == null) return;
 
-        final MenuEntry entry = event.getMenuEntry();
-        if (entry != null) {
-            final int itemId = entry.getItemId();
-            final int itemOp = entry.getItemOp();
-
-            if (itemOp >= 0) {
-                state.itemRepository.onInventoryItemClicked(client.getTickCount(), itemId, itemOp);
-            }
-        }
-
         state.itemRepository.onMenuOptionClicked(client, event, itemManager);
-
-        final int param1 = event.getParam1();
-        final MenuAction menuAction = event.getMenuAction();
-        final boolean depositButtonWasClicked = menuAction == MenuAction.CC_OP
-                && (param1 == WIDGET_DEPOSIT_ITEM_BUTTON
-                        || param1 == WIDGET_DEPOSIT_INVENTORY_BUTTON
-                        || param1 == WIDGET_DEPOSIT_EQUIPMENT_BUTTON);
-        if (depositButtonWasClicked) {
-            state.itemRepository.onDepositTriggered(client.getTickCount());
-        }
     }
 
     @Subscribe

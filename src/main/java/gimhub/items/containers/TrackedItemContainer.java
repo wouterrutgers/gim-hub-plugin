@@ -1,8 +1,6 @@
 package gimhub.items.containers;
 
 import gimhub.APISerializable;
-import gimhub.items.ItemsUnordered;
-import javax.annotation.Nullable;
 import net.runelite.api.Client;
 import net.runelite.api.ItemContainer;
 import net.runelite.api.events.ChatMessage;
@@ -26,17 +24,4 @@ public interface TrackedItemContainer {
     default void onGameTick(Client client, ItemManager itemManager) {}
 
     default void onStatChanged(StatChanged event, ItemManager itemManager) {}
-
-    @Nullable default ItemContainerInterface itemContainerInterface() {
-        return null;
-    }
-
-    // Quantities are added. Will change as much as possible, and return the overage quantity per item that could not be
-    // used.
-    // Sign of overage is preserved from the input sign.
-    // Positive signs indicate increasing items, negative indicate removing items.
-    // Overage occurs when containers become empty, don't fit an item, etc.
-    @Nullable default ItemsUnordered modify(ItemsUnordered itemsToDeposit) {
-        return null;
-    }
 }

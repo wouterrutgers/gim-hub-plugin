@@ -1,8 +1,14 @@
 package gimhub.items.containers;
 
 import gimhub.APISerializable;
+import gimhub.items.ItemsOrdered;
 import gimhub.items.ItemsUnordered;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
+import lombok.Getter;
+import net.runelite.api.Item;
 import net.runelite.api.ItemContainer;
 import net.runelite.api.gameval.InventoryID;
 import net.runelite.api.gameval.ItemID;
@@ -10,6 +16,9 @@ import net.runelite.client.game.ItemManager;
 
 public class TackleBoxItems implements TrackedItemContainer {
     private ItemsUnordered items = null;
+
+    @Getter
+    private Map<Integer, Integer> tackleBoxItems = new HashMap<>();
 
     @Override
     public String key() {
@@ -21,11 +30,43 @@ public class TackleBoxItems implements TrackedItemContainer {
         return items;
     }
 
+    private void rebuildItems(ItemManager itemManager) {
+        final ArrayList<Item> result = new ArrayList<>(tackleBoxItems.size());
+        for (final Map.Entry<Integer, Integer> e : tackleBoxItems.entrySet()) {
+            if (e.getValue() <= 0) continue;
+            result.add(new Item(e.getKey(), e.getValue()));
+        }
+
+        if (result.isEmpty()) {
+            items = new ItemsUnordered();
+        } else {
+            items = new ItemsUnordered(new ItemsOrdered(result, itemManager));
+        }
+    }
+
+    public void setItems(Map<Integer, Integer> items) {
+        Map<Integer, Integer> safeMap = new HashMap<>();
+        for (final Map.Entry<Integer, Integer> entry : items.entrySet()) {
+            final int itemID = entry.getKey();
+            final int quantity = entry.getValue();
+            if (quantity <= 0) {
+                continue;
+            }
+            safeMap.put(itemID, quantity);
+        }
+        this.items = new ItemsUnordered(safeMap);
+    }
+
     @Override
     public void onItemContainerChanged(ItemContainer container, ItemManager itemManager) {
         if (container.getId() == InventoryID.TACKLE_BOX) {
-            items = new ItemsUnordered(container, itemManager);
+            tackleBoxItems = new ItemsUnordered(container, itemManager).getItemsQuantityByID();
+            rebuildItems(itemManager);
         }
+    }
+
+    public Set<Integer> getItemFilter() {
+        return ITEM_FILTER;
     }
 
     private static final Set<Integer> ITEM_FILTER = Set.of(
@@ -91,26 +132,4 @@ public class TackleBoxItems implements TrackedItemContainer {
             ItemID.BULLSEYE_LANTERN_LIT,
             ItemID.CANDLE_LANTERN_LIT // white candle variant
             );
-
-    private final ItemContainerInterface ITEM_INTERFACE =
-            new ItemContainerInterface(Set.of(ItemID.TACKLE_BOX), 1, 2, 3);
-
-    @Override
-    public ItemContainerInterface itemContainerInterface() {
-        return ITEM_INTERFACE;
-    }
-
-    @Override
-    public ItemsUnordered modify(ItemsUnordered itemsToDeposit) {
-        final ItemsUnordered filtered = ItemsUnordered.filter(itemsToDeposit, (itemID, quantity) -> {
-            if (!ITEM_FILTER.contains(itemID)) return 0;
-
-            return quantity;
-        });
-        items = ItemsUnordered.add(items, filtered);
-        final ItemsUnordered overage = ItemsUnordered.filter(items, (itemID, quantity) -> Math.min(quantity, 0));
-        items = ItemsUnordered.subtract(items, overage);
-        final ItemsUnordered accepted = ItemsUnordered.subtract(filtered, overage);
-        return ItemsUnordered.subtract(itemsToDeposit, accepted);
-    }
 }

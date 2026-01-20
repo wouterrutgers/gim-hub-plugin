@@ -2,6 +2,8 @@ package gimhub.items.containers;
 
 import gimhub.APISerializable;
 import gimhub.items.ItemsUnordered;
+import java.util.HashMap;
+import java.util.Map;
 import net.runelite.api.ItemContainer;
 import net.runelite.api.gameval.InventoryID;
 import net.runelite.client.game.ItemManager;
@@ -26,17 +28,29 @@ public class BankItems implements TrackedItemContainer {
         }
     }
 
-    @Override
-    public ItemsUnordered modify(ItemsUnordered itemsToDeposit) {
-        // If we haven't opened the bank yet this session, we don't have authoritative contents.
-        // In that case, ignore modifications (but report no overage).
-        if (items == null) {
-            return new ItemsUnordered();
+    public void setItems(Map<Integer, Integer> items) {
+        Map<Integer, Integer> safeMap = new HashMap<>();
+        for (final Map.Entry<Integer, Integer> entry : items.entrySet()) {
+            final int itemID = entry.getKey();
+            final int quantity = entry.getValue();
+            if (quantity <= 0) {
+                continue;
+            }
+            safeMap.put(itemID, quantity);
         }
+        this.items = new ItemsUnordered(safeMap);
+    }
 
-        items = ItemsUnordered.add(items, itemsToDeposit);
-        final ItemsUnordered overage = ItemsUnordered.filter(items, (itemID, quantity) -> Math.min(quantity, 0));
-        items = ItemsUnordered.subtract(items, overage);
-        return overage;
+    public void addItems(Map<Integer, Integer> items) {
+        Map<Integer, Integer> safeMap = this.items.getItemsQuantityByID();
+        for (final Map.Entry<Integer, Integer> entry : items.entrySet()) {
+            final int itemID = entry.getKey();
+            final int quantity = entry.getValue();
+            if (quantity <= 0) {
+                continue;
+            }
+            safeMap.merge(itemID, quantity, Integer::sum);
+        }
+        this.items = new ItemsUnordered(safeMap);
     }
 }
