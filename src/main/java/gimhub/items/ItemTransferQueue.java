@@ -78,8 +78,10 @@ public class ItemTransferQueue {
     }
 
     private static final int TICK_COUNT_FOR_ITEM_TRANSFER_DETECTION = 2;
-    private static final Map<Integer, Integer> IDENTIFIER_FILL_BY_ITEM_ID = Map.ofEntries(Map.entry(ItemID.TACKLE_BOX, 3));
-    private static final Map<Integer, Integer> IDENTIFIER_EMPTY_BY_ITEM_ID = Map.ofEntries(Map.entry(ItemID.TACKLE_BOX, 4));
+    private static final Map<Integer, Integer> IDENTIFIER_FILL_BY_ITEM_ID =
+            Map.ofEntries(Map.entry(ItemID.TACKLE_BOX, 3));
+    private static final Map<Integer, Integer> IDENTIFIER_EMPTY_BY_ITEM_ID =
+            Map.ofEntries(Map.entry(ItemID.TACKLE_BOX, 4));
 
     private TrackedContainers previousTickState;
     private final List<TrackedMenuOptionClicked> itemOpQueue = new ArrayList<>();
@@ -97,7 +99,7 @@ public class ItemTransferQueue {
         public BankSettings(Client client) {
             this.depositXQuantity = client.getVarpValue(VarPlayerID.DEPOSITBOX_REQUESTEDQUANTITY);
 
-            switch(client.getVarbitValue(VarbitID.BANK_QUANTITY_TYPE)) {
+            switch (client.getVarbitValue(VarbitID.BANK_QUANTITY_TYPE)) {
                 case 0:
                     this.bankDefaultDepositQuantity = 1;
                     break;
@@ -118,7 +120,7 @@ public class ItemTransferQueue {
                     break;
             }
 
-            switch(client.getVarbitValue(VarbitID.DEPOSITBOX_MODE)) {
+            switch (client.getVarbitValue(VarbitID.DEPOSITBOX_MODE)) {
                 case 0:
                     this.depositBoxDefaultDepositQuantity = 1;
                     break;
@@ -141,7 +143,12 @@ public class ItemTransferQueue {
         }
     }
 
-    public ContainersToUpdate onGameTick(TrackedContainers knownState, BankSettings bankSettings, int tickCount, boolean isBankOpen, boolean isTackleBoxOpen) {
+    public ContainersToUpdate onGameTick(
+            TrackedContainers knownState,
+            BankSettings bankSettings,
+            int tickCount,
+            boolean isBankOpen,
+            boolean isTackleBoxOpen) {
         itemOpQueue.removeIf(op -> op.tickCount < tickCount - TICK_COUNT_FOR_ITEM_TRANSFER_DETECTION);
 
         if (previousTickState == null || itemOpQueue.isEmpty()) {
@@ -188,8 +195,10 @@ public class ItemTransferQueue {
                         final int inventoryQuantityNow = assumedNow.inventory.getOrDefault(depositedItemID, 0);
                         final int actualQuantityDeposited = Math.min(inventoryQuantityNow, attemptedDepositQuantity);
 
-                        // We do not track containers that deposit directly from the bank, so this inference is mostly safe.
-                        final int bankDiscrepancy = knownState.bank.getOrDefault(depositedItemID, 0) - assumedNow.bank.getOrDefault(depositedItemID, 0);
+                        // We do not track containers that deposit directly from the bank, so this inference is mostly
+                        // safe.
+                        final int bankDiscrepancy = knownState.bank.getOrDefault(depositedItemID, 0)
+                                - assumedNow.bank.getOrDefault(depositedItemID, 0);
                         final boolean depositOccurred = bankDiscrepancy >= actualQuantityDeposited;
 
                         if (actualQuantityDeposited > 0 && depositOccurred) {
@@ -240,7 +249,8 @@ public class ItemTransferQueue {
 
                         // Sometimes clicking an item does not deposit it. This may be confused with filling a container
                         // while depositing, but that case seems rare enough to not matter.
-                        final int inventoryDiscrepancy = knownState.inventory.getOrDefault(depositedItemID, 0) - inventoryQuantityNow;
+                        final int inventoryDiscrepancy =
+                                knownState.inventory.getOrDefault(depositedItemID, 0) - inventoryQuantityNow;
                         final boolean depositOccurred = inventoryDiscrepancy <= -actualQuantityDeposited;
 
                         if (actualQuantityDeposited > 0 && depositOccurred) {
@@ -294,15 +304,15 @@ public class ItemTransferQueue {
                         final int bankQuantityNow = assumedNow.bank.getOrDefault(withdrawnItemID, 0);
                         final int actualQuantityWithdrawn = Math.min(bankQuantityNow, attemptedWithdrawQuantity);
 
-                        // We do not track containers that draw directly from the bank, so this inference is mostly safe.
+                        // We do not track containers that draw directly from the bank, so this inference is mostly
+                        // safe.
                         final int bankDiscrepancy = knownState.bank.getOrDefault(withdrawnItemID, 0) - bankQuantityNow;
                         final boolean withdrawalOccurred = bankDiscrepancy <= -actualQuantityWithdrawn;
 
-                        if(actualQuantityWithdrawn > 0 && withdrawalOccurred) {
+                        if (actualQuantityWithdrawn > 0 && withdrawalOccurred) {
                             assumedNow.inventory.merge(withdrawnItemID, actualQuantityWithdrawn, Integer::sum);
                             assumedNow.bank.merge(withdrawnItemID, -actualQuantityWithdrawn, Integer::sum);
                         }
-
                     }
                 }
             } else if (op.param1 == InterfaceID.Inventory.ITEMS) {
@@ -317,7 +327,7 @@ public class ItemTransferQueue {
                     inventoryExpectedChanges = TransferDirection.NONE;
                 }
 
-                if(inventoryExpectedChanges != TransferDirection.NONE) {
+                if (inventoryExpectedChanges != TransferDirection.NONE) {
                     final Map<Integer, Integer> transferQuantities = filterLaterMinusNow(
                             assumedNow.inventory,
                             knownState.inventory,
@@ -409,7 +419,6 @@ public class ItemTransferQueue {
 
         ContainersToUpdate result = new ContainersToUpdate();
 
-
         result.bank = mostUpToDateCheckpoint.bank.entrySet().stream()
                 .filter(entry -> entry.getValue() != 0)
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
@@ -433,8 +442,7 @@ public class ItemTransferQueue {
                 knownState.inventory,
                 knownState.equipment,
                 isBankOpen ? knownState.bank : result.bank,
-                isTackleBoxOpen ? knownState.tackleBox : result.tackleBox
-        );
+                isTackleBoxOpen ? knownState.tackleBox : result.tackleBox);
         return result;
     }
 
@@ -526,7 +534,8 @@ public class ItemTransferQueue {
                 new TrackedMenuOptionClicked(event, bankIsOpen, depositBoxIsOpen, client.getTickCount());
 
         final boolean isOpTracked;
-        // TODO: worn items (in deposit box, equipment, and bank). This is unlikely to matter unless the player does a bunch of weird actions.
+        // TODO: worn items (in deposit box, equipment, and bank). This is unlikely to matter unless the player does a
+        // bunch of weird actions.
         if (op.param1 == InterfaceID.Bankside.ITEMS) {
             final boolean isDeposit = op.identifier >= 2 && op.identifier <= 8;
             final boolean isUseFillEmpty = op.identifier == 9;

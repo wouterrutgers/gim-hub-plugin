@@ -79,12 +79,11 @@ public class ItemRepository {
                 tackleBox.getTackleBoxItems());
 
         ItemTransferQueue.ContainersToUpdate updates = itemTransferQueue.onGameTick(
-            knownState,
-            new ItemTransferQueue.BankSettings(client),
-            client.getTickCount(),
-            bankIsOpen,
-            tackleBoxIsOpen
-        );
+                knownState,
+                new ItemTransferQueue.BankSettings(client),
+                client.getTickCount(),
+                bankIsOpen,
+                tackleBoxIsOpen);
 
         if (!bankIsOpen && updates.bank != null) {
             bank.setItems(updates.bank, itemManager);
