@@ -3,15 +3,14 @@ package gimhub.items;
 import gimhub.items.containers.TackleBoxItems;
 import java.util.*;
 import java.util.stream.Collectors;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
-import net.runelite.api.MenuAction;
 import net.runelite.api.events.MenuOptionClicked;
 import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.api.gameval.VarPlayerID;
 import net.runelite.api.gameval.VarbitID;
-import net.runelite.client.game.ItemManager;
 
 @Slf4j
 public class ItemTransferQueue {
@@ -58,21 +57,34 @@ public class ItemTransferQueue {
         public final int param0;
         public final int param1;
         public final int identifier;
-        public final MenuAction menuAction;
-        public final boolean bankIsOpen;
-        public final boolean depositIsOpen;
-        public final int tickCount;
 
-        public TrackedMenuOptionClicked(
-                MenuOptionClicked event, boolean bankIsOpen, boolean depositIsOpen, int tickCount) {
+        @Getter
+        private int tickCount;
+
+        @Getter
+        private Integer queryXQuantity = null;
+
+        public void setQueryXQuantity(int quantity, int tickCount) {
+            // Refresh the tick count, since the timer for when we expect to observe it starts NOW
+            this.tickCount = tickCount;
+            this.queryXQuantity = quantity;
+        }
+
+        // Indicates that this event represents a "withdraw/deposit X" option in an item menu that pulls up the modal.
+        public boolean isQueryXAction() {
+            final boolean isBankside = param1 == InterfaceID.Bankside.ITEMS && identifier == 7;
+            final boolean isBankmain = param1 == InterfaceID.Bankmain.ITEMS && identifier == 6;
+            final boolean isBankDepositbox = param1 == InterfaceID.BankDepositbox.INVENTORY && identifier == 5;
+
+            return isBankside || isBankmain || isBankDepositbox;
+        }
+
+        public TrackedMenuOptionClicked(MenuOptionClicked event, int tickCount) {
             this.itemOp = event.getItemOp();
             this.itemId = event.getItemId();
             this.param0 = event.getParam0();
             this.param1 = event.getParam1();
-            this.menuAction = event.getMenuAction();
             this.identifier = event.getId();
-            this.bankIsOpen = bankIsOpen;
-            this.depositIsOpen = depositIsOpen;
             this.tickCount = tickCount;
         }
     }
@@ -149,7 +161,14 @@ public class ItemTransferQueue {
             int tickCount,
             boolean isBankOpen,
             boolean isTackleBoxOpen) {
-        itemOpQueue.removeIf(op -> op.tickCount < tickCount - TICK_COUNT_FOR_ITEM_TRANSFER_DETECTION);
+        itemOpQueue.removeIf(op -> {
+            final boolean isUnfinishedQueryXAction = op.isQueryXAction() && op.getQueryXQuantity() == null;
+            if (isUnfinishedQueryXAction) {
+                return false;
+            }
+
+            return op.tickCount < tickCount - TICK_COUNT_FOR_ITEM_TRANSFER_DETECTION;
+        });
 
         if (previousTickState == null || itemOpQueue.isEmpty()) {
             previousTickState = knownState.deepClone();
@@ -184,7 +203,7 @@ public class ItemTransferQueue {
                             attemptedDepositQuantity = bankSettings.depositXQuantity;
                             break;
                         case 7: // Deposit X (with prompt for amount)
-                            // TODO
+                            attemptedDepositQuantity = op.getQueryXQuantity();
                             break;
                         case 8: // Deposit all
                             attemptedDepositQuantity = Integer.MAX_VALUE;
@@ -236,7 +255,7 @@ public class ItemTransferQueue {
                             attemptedDepositQuantity = 10;
                             break;
                         case 5: // Deposit X (with prompt for amount)
-                            // TODO
+                            attemptedDepositQuantity = op.getQueryXQuantity();
                             break;
                         case 6: // Deposit all
                             attemptedDepositQuantity = Integer.MAX_VALUE;
@@ -290,7 +309,7 @@ public class ItemTransferQueue {
                             attemptedWithdrawQuantity = bankSettings.depositXQuantity;
                             break;
                         case 6: // Withdraw X (with prompt for amount)
-                            // TODO
+                            attemptedWithdrawQuantity = op.getQueryXQuantity();
                             break;
                         case 7: // Withdraw all
                             attemptedWithdrawQuantity = Integer.MAX_VALUE;
@@ -526,12 +545,33 @@ public class ItemTransferQueue {
         }
     }
 
-    public void onMenuOptionClicked(Client client, MenuOptionClicked event, ItemManager itemManager) {
-        final boolean bankIsOpen = client.getWidget(InterfaceID.Bankmain.UNIVERSE) != null;
-        final boolean depositBoxIsOpen = client.getWidget(InterfaceID.BankDepositbox.UNIVERSE) != null;
+    public void onXQuerySubmitted(int quantity, int tickCount) {
+        for (int opIdx = itemOpQueue.size() - 1; opIdx >= 0; opIdx--) {
+            TrackedMenuOptionClicked op = itemOpQueue.get(opIdx);
 
-        final TrackedMenuOptionClicked op =
-                new TrackedMenuOptionClicked(event, bankIsOpen, depositBoxIsOpen, client.getTickCount());
+            if (!op.isQueryXAction()) continue;
+
+            if (op.getQueryXQuantity() == null) {
+                op.setQueryXQuantity(quantity, tickCount);
+            }
+
+            break;
+        }
+    }
+
+    public void cullQueryXActions() {
+        itemOpQueue.removeIf(op -> {
+            if (!op.isQueryXAction()) {
+                return false;
+            }
+
+            final Integer quantity = op.getQueryXQuantity();
+            return quantity == null || quantity <= 0;
+        });
+    }
+
+    public void onMenuOptionClicked(Client client, MenuOptionClicked event) {
+        final TrackedMenuOptionClicked op = new TrackedMenuOptionClicked(event, client.getTickCount());
 
         final boolean isOpTracked;
         // TODO: worn items (in deposit box, equipment, and bank). This is unlikely to matter unless the player does a
@@ -545,8 +585,7 @@ public class ItemTransferQueue {
             final boolean isUseFillEmpty = op.identifier == 9;
             isOpTracked = isDeposit || isUseFillEmpty;
         } else if (op.param1 == InterfaceID.Bankmain.ITEMS) {
-            final boolean isWithdrawal = op.identifier >= 1 && op.identifier <= 8;
-            isOpTracked = isWithdrawal;
+            isOpTracked = op.identifier >= 1 && op.identifier <= 8;
         } else if (op.param1 == InterfaceID.Inventory.ITEMS) {
             final int FILL = IDENTIFIER_FILL_BY_ITEM_ID.get(op.itemId);
             final int EMPTY = IDENTIFIER_EMPTY_BY_ITEM_ID.get(op.itemId);

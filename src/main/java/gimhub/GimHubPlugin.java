@@ -32,11 +32,6 @@ public class GimHubPlugin extends Plugin {
     private static final int SECONDS_BETWEEN_UPLOADS = 1;
     private static final int SECONDS_BETWEEN_INFREQUENT_DATA_CHANGES = 60;
 
-    private static final int WIDGET_DEPOSIT_ITEM_BUTTON = 12582935;
-    private static final int WIDGET_DEPOSIT_INVENTORY_BUTTON = 12582941;
-    private static final int WIDGET_DEPOSIT_EQUIPMENT_BUTTON = 12582942;
-    private static final int SCRIPT_CHATBOX_ENTERED = 681;
-
     @Override
     protected void startUp() throws Exception {
         collectionLogWidgetSubscriber.startUp();
@@ -125,6 +120,22 @@ public class GimHubPlugin extends Plugin {
         if (state == null) return;
 
         state.itemRepository.onMenuOptionClicked(client, event, itemManager);
+    }
+
+    @Subscribe
+    private void onScriptPostFired(ScriptPostFired event) {
+        PlayerState state = dataManager.getMaybeResetState(client);
+        if (state == null) return;
+
+        state.itemRepository.onScriptPostFired(client, event);
+    }
+
+    @Subscribe
+    private void onVarClientIntChanged(VarClientIntChanged event) {
+        PlayerState state = dataManager.getMaybeResetState(client);
+        if (state == null) return;
+
+        state.itemRepository.onVarClientIntChanged(client, event);
     }
 
     @Subscribe

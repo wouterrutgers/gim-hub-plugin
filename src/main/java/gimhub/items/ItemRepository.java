@@ -6,9 +6,7 @@ import java.util.*;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
 import net.runelite.api.ItemContainer;
-import net.runelite.api.events.ChatMessage;
-import net.runelite.api.events.MenuOptionClicked;
-import net.runelite.api.events.StatChanged;
+import net.runelite.api.events.*;
 import net.runelite.api.gameval.*;
 import net.runelite.client.game.ItemManager;
 
@@ -98,10 +96,39 @@ public class ItemRepository {
     }
 
     public void onMenuOptionClicked(Client client, MenuOptionClicked event, ItemManager itemManager) {
-        itemTransferQueue.onMenuOptionClicked(client, event, itemManager);
+        itemTransferQueue.onMenuOptionClicked(client, event);
 
         for (TrackedItemContainer tracked : containers) {
             tracked.onMenuOptionClicked(client, event, itemManager);
+        }
+    }
+
+    private static final int MESLAYERMODE_XQUERY = 7;
+
+    public void onScriptPostFired(Client client, ScriptPostFired event) {
+        // This script converts strings with "K" "M" and "B" to a format without them
+        final int PROCESS_STRING_SCRIPT = 212;
+        final boolean isXQueryOpen = client.getVarcIntValue(VarClientID.MESLAYERMODE) == MESLAYERMODE_XQUERY;
+        final Object scriptReturnValue = client.getObjectStack()[0];
+
+        if (event.getScriptId() == PROCESS_STRING_SCRIPT && isXQueryOpen && scriptReturnValue instanceof String) {
+            final int xQueryQuantity = Integer.parseInt((String) scriptReturnValue);
+            itemTransferQueue.onXQuerySubmitted(xQueryQuantity, client.getTickCount());
+        }
+    }
+
+    private int mesLayerMode = 0;
+
+    public void onVarClientIntChanged(Client client, VarClientIntChanged event) {
+        if (event.getIndex() != VarClientID.MESLAYERMODE) return;
+
+        final int oldMode = mesLayerMode;
+        final int newMode = client.getVarcIntValue(VarClientID.MESLAYERMODE);
+
+        mesLayerMode = newMode;
+
+        if (oldMode == MESLAYERMODE_XQUERY && newMode != MESLAYERMODE_XQUERY) {
+            itemTransferQueue.cullQueryXActions();
         }
     }
 
