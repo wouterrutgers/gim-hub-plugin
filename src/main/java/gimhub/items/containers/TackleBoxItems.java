@@ -1,14 +1,10 @@
 package gimhub.items.containers;
 
 import gimhub.APISerializable;
-import gimhub.items.ItemsOrdered;
 import gimhub.items.ItemsUnordered;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
-import lombok.Getter;
-import net.runelite.api.Item;
 import net.runelite.api.ItemContainer;
 import net.runelite.api.gameval.InventoryID;
 import net.runelite.api.gameval.ItemID;
@@ -16,12 +12,20 @@ import net.runelite.client.game.ItemManager;
 
 public class TackleBoxItems implements TrackedItemContainer {
     private ItemsUnordered items = null;
+    private boolean known = false;
 
-    @Getter
-    private Map<Integer, Integer> tackleBoxItems = new HashMap<>();
+    public Map<Integer, Integer> getTackleBoxItems() {
+        if (items == null) {
+            return new HashMap<>();
+        }
+        return new HashMap<>(items.getItemsQuantityByID());
+    }
 
     @Override
     public String key() {
+        if (!known) {
+            return "tackle_box_partial";
+        }
         return "tackle_box";
     }
 
@@ -30,42 +34,23 @@ public class TackleBoxItems implements TrackedItemContainer {
         return items;
     }
 
-    private void rebuildItems(ItemManager itemManager) {
-        final ArrayList<Item> result = new ArrayList<>(tackleBoxItems.size());
-        for (final Map.Entry<Integer, Integer> e : tackleBoxItems.entrySet()) {
-            if (e.getValue() <= 0) continue;
-            result.add(new Item(e.getKey(), e.getValue()));
-        }
-
-        if (result.isEmpty()) {
-            items = new ItemsUnordered();
-        } else {
-            items = new ItemsUnordered(new ItemsOrdered(result, itemManager));
-        }
-    }
-
-    public void setItems(Map<Integer, Integer> items) {
-        Map<Integer, Integer> safeMap = new HashMap<>();
-        for (final Map.Entry<Integer, Integer> entry : items.entrySet()) {
-            final int itemID = entry.getKey();
-            final int quantity = entry.getValue();
-            if (quantity <= 0) {
-                continue;
-            }
-            safeMap.put(itemID, quantity);
-        }
-        this.items = new ItemsUnordered(safeMap);
-    }
-
     @Override
     public void onItemContainerChanged(ItemContainer container, ItemManager itemManager) {
         if (container.getId() == InventoryID.TACKLE_BOX) {
-            tackleBoxItems = new ItemsUnordered(container, itemManager).getItemsQuantityByID();
-            rebuildItems(itemManager);
+            items = new ItemsUnordered(container, itemManager);
+            known = true;
         }
     }
 
-    public Set<Integer> getItemFilter() {
+    public void setItems(Map<Integer, Integer> items, ItemManager itemManager) {
+        if (this.items == null && items.isEmpty()) {
+            return;
+        }
+
+        this.items = new ItemsUnordered(items, itemManager);
+    }
+
+    public static Set<Integer> getItemFilter() {
         return ITEM_FILTER;
     }
 

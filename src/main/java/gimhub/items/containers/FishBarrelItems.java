@@ -294,7 +294,7 @@ public class FishBarrelItems implements TrackedItemContainer {
             final boolean shouldCreditBank =
                     "Empty to bank".equalsIgnoreCase(option) || (depositBoxOpen && "Empty".equalsIgnoreCase(option));
             if (shouldCreditBank && !mainBankOpen && bank != null && known) {
-                bank.addItems(barrel);
+                bank.addItems(barrel, itemManager);
             }
 
             lastEmptyTick = tick;
