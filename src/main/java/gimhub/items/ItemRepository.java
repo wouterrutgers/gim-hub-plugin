@@ -3,8 +3,12 @@ package gimhub.items;
 import gimhub.APISerializable;
 import gimhub.items.containers.*;
 import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
+import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
+import net.runelite.api.Item;
 import net.runelite.api.ItemContainer;
 import net.runelite.api.events.*;
 import net.runelite.api.gameval.*;
@@ -12,18 +16,26 @@ import net.runelite.client.game.ItemManager;
 
 @Slf4j
 public class ItemRepository {
-    private final TrackedItemContainer[] containers;
+    private final List<TrackedItemContainer> allContainers;
 
     private final BankItems bank = new BankItems();
     private final TackleBoxItems tackleBox = new TackleBoxItems();
 
     private final ItemTransferQueue itemTransferQueue = new ItemTransferQueue();
 
+    private final TrackedItemContainer[] depositButtonContainers;
+    private Map<Integer, Integer> depositButtonItemsStaged = null;
+    private static final String DEPOSIT_CONTAINERS_MESSAGE = "You empty all of your containers into the bank.";
+
     public ItemRepository() {
         FishBarrelItems fishBarrel = new FishBarrelItems();
         fishBarrel.setBank(bank);
 
-        containers = new TrackedItemContainer[] {
+        depositButtonContainers = new TrackedItemContainer[] {
+            // We are missing Herb sacks, Meat pouches, Log baskets, Reagent pouches, Fur pouches and Looting bags here
+            new EssencePouchesItems(), new CoalBagItems(), fishBarrel, new PlankSackItems(),
+        };
+        final TrackedItemContainer[] otherContainers = new TrackedItemContainer[] {
             bank,
             new InventoryItems(),
             new EquipmentItems(),
@@ -33,35 +45,51 @@ public class ItemRepository {
             new PohCostumeRoomItems(),
             new RunePouchItems(),
             new QuiverItems(),
-            new PlankSackItems(),
             new MasterScrollBookItems(),
-            new EssencePouchesItems(),
             tackleBox,
             fishBarrel,
-            new CoalBagItems(),
         };
+
+        allContainers = Stream.of(Stream.of(otherContainers), Stream.of(depositButtonContainers))
+                .flatMap(s -> s)
+                .collect(Collectors.toList());
     }
 
     public void onItemContainerChanged(ItemContainer container, ItemManager itemManager) {
-        for (TrackedItemContainer tracked : containers) {
+        for (TrackedItemContainer tracked : allContainers) {
             tracked.onItemContainerChanged(container, itemManager);
         }
     }
 
     public void onStatChanged(StatChanged event, ItemManager itemManager) {
-        for (TrackedItemContainer tracked : containers) {
+        for (TrackedItemContainer tracked : allContainers) {
             tracked.onStatChanged(event, itemManager);
         }
     }
 
     public void onVarbitChanged(Client client, int varpId, int varbitId, ItemManager itemManager) {
-        for (TrackedItemContainer tracked : containers) {
+        for (TrackedItemContainer tracked : allContainers) {
             tracked.onVarbitChanged(client, varpId, varbitId, itemManager);
         }
     }
 
     public void onChatMessage(Client client, ChatMessage event, ItemManager itemManager) {
-        for (TrackedItemContainer tracked : containers) {
+        final ChatMessageType type = event.getType();
+        final String msg = event.getMessage();
+
+        if (type == ChatMessageType.GAMEMESSAGE
+                && msg != null
+                && msg.contains(DEPOSIT_CONTAINERS_MESSAGE)
+                && depositButtonItemsStaged != null) {
+            // The message event comes AFTER all the varbits change, so that's why we staged the items already.
+
+            // TODO: do we need to credit these items to ItemTransferQueue to help bookkeeping?
+            bank.addItems(depositButtonItemsStaged, itemManager);
+
+            depositButtonItemsStaged = null;
+        }
+
+        for (TrackedItemContainer tracked : allContainers) {
             tracked.onChatMessage(client, event, itemManager);
         }
     }
@@ -90,15 +118,39 @@ public class ItemRepository {
             tackleBox.setItems(updates.tackleBox, itemManager);
         }
 
-        for (TrackedItemContainer tracked : containers) {
+        for (TrackedItemContainer tracked : allContainers) {
             tracked.onGameTick(client, itemManager);
         }
     }
 
     public void onMenuOptionClicked(Client client, MenuOptionClicked event, ItemManager itemManager) {
+        final boolean clickedDepositContainersButton =
+                event.getParam1() == InterfaceID.BankDepositbox.DEPOSIT_LOOTINGBAG
+                        || event.getParam1() == InterfaceID.Bankmain.DEPOSITCONTAINERS;
+        if (clickedDepositContainersButton && depositButtonItemsStaged == null) {
+            final ItemContainer inventory = client.getItemContainer(InventoryID.INV);
+            if (inventory != null) {
+                final Set<Integer> inventoryIDs = Arrays.stream(inventory.getItems())
+                        .map(Item::getId)
+                        .filter(itemID -> itemID >= 0)
+                        .collect(Collectors.toSet());
+
+                final Map<Integer, Integer> depositedItems = new HashMap<>();
+                for (TrackedItemContainer container : depositButtonContainers) {
+                    final Map<Integer, Integer> containerItems =
+                            container.onDepositContainers(client, itemManager, inventoryIDs);
+                    for (final Map.Entry<Integer, Integer> entry : containerItems.entrySet()) {
+                        depositedItems.merge(entry.getKey(), entry.getValue(), Integer::sum);
+                    }
+                }
+                depositButtonItemsStaged = depositedItems;
+            }
+            return;
+        }
+
         itemTransferQueue.onMenuOptionClicked(client, event);
 
-        for (TrackedItemContainer tracked : containers) {
+        for (TrackedItemContainer tracked : allContainers) {
             tracked.onMenuOptionClicked(client, event, itemManager);
         }
     }
@@ -133,7 +185,7 @@ public class ItemRepository {
     }
 
     public void flatten(Map<String, APISerializable> flat) {
-        for (TrackedItemContainer tracked : containers) {
+        for (TrackedItemContainer tracked : allContainers) {
             flat.put(tracked.key(), tracked.get());
         }
     }

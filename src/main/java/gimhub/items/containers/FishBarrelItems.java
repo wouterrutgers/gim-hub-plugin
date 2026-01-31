@@ -381,4 +381,20 @@ public class FishBarrelItems implements TrackedItemContainer {
         caughtFishThisTick.clear();
         lastCaughtFishId = null;
     }
+
+    @Override
+    public Map<Integer, Integer> onDepositContainers(
+            Client client, ItemManager itemManager, Set<Integer> inventoryIDs) {
+        final boolean hasAnyFishBarrel = BARREL_IDS.stream().anyMatch(inventoryIDs::contains);
+        if (!hasAnyFishBarrel) {
+            return new HashMap<>();
+        }
+
+        final Map<Integer, Integer> depositedItems = Map.copyOf(barrel);
+        barrel.clear();
+        known = true;
+        rebuildItems(itemManager);
+
+        return depositedItems;
+    }
 }

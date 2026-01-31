@@ -3,7 +3,9 @@ package gimhub.items.containers;
 import gimhub.APISerializable;
 import gimhub.items.ItemsOrdered;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import net.runelite.api.Client;
 import net.runelite.api.Item;
 import net.runelite.api.gameval.ItemID;
@@ -59,5 +61,18 @@ public class PlankSackItems implements TrackedItemContainer {
     @Override
     public void onGameTick(Client client, ItemManager itemManager) {
         update(client, itemManager);
+    }
+
+    @Override
+    public Map<Integer, Integer> onDepositContainers(
+            Client client, ItemManager itemManager, Set<Integer> inventoryIDs) {
+        if (!inventoryIDs.contains(ItemID.PLANK_SACK) || items == null) {
+            return new HashMap<>();
+        }
+
+        final Map<Integer, Integer> depositedItems = Map.copyOf(items.getUnorderedMap());
+        items = new ItemsOrdered();
+
+        return depositedItems;
     }
 }

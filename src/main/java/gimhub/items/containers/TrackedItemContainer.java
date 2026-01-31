@@ -1,6 +1,9 @@
 package gimhub.items.containers;
 
 import gimhub.APISerializable;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
 import net.runelite.api.Client;
 import net.runelite.api.ItemContainer;
 import net.runelite.api.events.ChatMessage;
@@ -24,4 +27,9 @@ public interface TrackedItemContainer {
     default void onGameTick(Client client, ItemManager itemManager) {}
 
     default void onStatChanged(StatChanged event, ItemManager itemManager) {}
+
+    default Map<Integer, Integer> onDepositContainers(
+            Client client, ItemManager itemManager, Set<Integer> inventoryIDs) {
+        return new HashMap<>();
+    }
 }

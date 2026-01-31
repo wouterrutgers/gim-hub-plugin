@@ -3,6 +3,8 @@ package gimhub.items;
 import gimhub.APISerializable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Item;
 import net.runelite.api.ItemContainer;
@@ -11,6 +13,10 @@ import net.runelite.client.game.ItemManager;
 @Slf4j
 public class ItemsOrdered implements APISerializable {
     private final List<ItemContainerItem> items;
+
+    public ItemsOrdered() {
+        items = new ArrayList<>();
+    }
 
     public ItemsOrdered(Iterable<Item> container, ItemManager itemManager) {
         this.items = new ArrayList<>();
@@ -44,6 +50,10 @@ public class ItemsOrdered implements APISerializable {
 
     public Iterable<ItemContainerItem> getItems() {
         return items;
+    }
+
+    public Map<Integer, Integer> getUnorderedMap() {
+        return items.stream().collect(Collectors.toMap(ItemContainerItem::getId, ItemContainerItem::getQuantity));
     }
 
     public Object serialize() {

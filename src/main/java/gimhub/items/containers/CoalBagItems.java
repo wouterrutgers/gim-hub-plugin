@@ -235,4 +235,24 @@ public class CoalBagItems implements TrackedItemContainer {
 
         rebuildItems(itemManager);
     }
+
+    @Override
+    public Map<Integer, Integer> onDepositContainers(
+            Client client, ItemManager itemManager, Set<Integer> inventoryIDs) {
+        final boolean hasAnyCoalBag =
+                inventoryIDs.contains(ItemID.COAL_BAG) || inventoryIDs.contains(ItemID.COAL_BAG_OPEN);
+        if (!hasAnyCoalBag) {
+            return new HashMap<>();
+        }
+
+        final Integer depositedCoalAmount = bagCoalAmount;
+        bagCoalAmount = 0;
+        rebuildItems(itemManager);
+
+        if (depositedCoalAmount == null || depositedCoalAmount <= 0) {
+            return new HashMap<>();
+        }
+
+        return Map.of(ItemID.COAL, depositedCoalAmount);
+    }
 }
