@@ -4,12 +4,13 @@ import gimhub.APISerializable;
 import gimhub.items.ItemsUnordered;
 import net.runelite.api.Client;
 import net.runelite.api.ItemContainer;
+import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.gameval.InventoryID;
 import net.runelite.api.widgets.Widget;
 import net.runelite.client.game.ItemManager;
 
 public class SharedBankItems implements TrackedItemContainer {
-    private static final int WIDGET_GROUP_STORAGE_LOADER_PARENT = 293;
+    private static final int WIDGET_GROUP_STORAGE_LOADER_PARENT = InterfaceID.LOADING_ICON_MODAL;
     private static final int WIDGET_GROUP_STORAGE_LOADER_TEXT_CHILD = 1;
 
     private ItemsUnordered committed = null;

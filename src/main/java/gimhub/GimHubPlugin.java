@@ -7,7 +7,6 @@ import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.*;
 import net.runelite.api.events.*;
-import net.runelite.api.gameval.InterfaceID;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.game.ItemManager;
@@ -32,11 +31,6 @@ public class GimHubPlugin extends Plugin {
 
     private static final int SECONDS_BETWEEN_UPLOADS = 1;
     private static final int SECONDS_BETWEEN_INFREQUENT_DATA_CHANGES = 60;
-
-    private static final int WIDGET_DEPOSIT_ITEM_BUTTON = 12582935;
-    private static final int WIDGET_DEPOSIT_INVENTORY_BUTTON = 12582941;
-    private static final int WIDGET_DEPOSIT_EQUIPMENT_BUTTON = 12582942;
-    private static final int SCRIPT_CHATBOX_ENTERED = 681;
 
     @Override
     protected void startUp() throws Exception {
@@ -95,10 +89,19 @@ public class GimHubPlugin extends Plugin {
     }
 
     @Subscribe
-    public void onStatChanged(StatChanged statChanged) {
+    public void onChatMessage(ChatMessage event) {
         PlayerState state = dataManager.getMaybeResetState(client);
         if (state == null) return;
 
+        state.itemRepository.onChatMessage(client, event, itemManager);
+    }
+
+    @Subscribe
+    private void onStatChanged(StatChanged event) {
+        PlayerState state = dataManager.getMaybeResetState(client);
+        if (state == null) return;
+
+        state.itemRepository.onStatChanged(event, itemManager);
         state.activityRepository.updateSkills(client);
     }
 
@@ -112,31 +115,27 @@ public class GimHubPlugin extends Plugin {
     }
 
     @Subscribe
-    private void onScriptPostFired(ScriptPostFired event) {
-        PlayerState state = dataManager.getMaybeResetState(client);
-        if (state == null) return;
-
-        final boolean enteredChatbox = event.getScriptId() == SCRIPT_CHATBOX_ENTERED;
-        final boolean depositBoxWidgetIsOpen = client.getWidget(InterfaceID.BankDepositbox.INVENTORY) != null;
-        if (enteredChatbox && depositBoxWidgetIsOpen) {
-            state.itemRepository.onDepositTriggered();
-        }
-    }
-
-    @Subscribe
     private void onMenuOptionClicked(MenuOptionClicked event) {
         PlayerState state = dataManager.getMaybeResetState(client);
         if (state == null) return;
 
-        final int param1 = event.getParam1();
-        final MenuAction menuAction = event.getMenuAction();
-        final boolean depositButtonWasClicked = menuAction == MenuAction.CC_OP
-                && (param1 == WIDGET_DEPOSIT_ITEM_BUTTON
-                        || param1 == WIDGET_DEPOSIT_INVENTORY_BUTTON
-                        || param1 == WIDGET_DEPOSIT_EQUIPMENT_BUTTON);
-        if (depositButtonWasClicked) {
-            state.itemRepository.onDepositTriggered();
-        }
+        state.itemRepository.onMenuOptionClicked(client, event, itemManager);
+    }
+
+    @Subscribe
+    private void onScriptPostFired(ScriptPostFired event) {
+        PlayerState state = dataManager.getMaybeResetState(client);
+        if (state == null) return;
+
+        state.itemRepository.onScriptPostFired(client, event);
+    }
+
+    @Subscribe
+    private void onVarClientIntChanged(VarClientIntChanged event) {
+        PlayerState state = dataManager.getMaybeResetState(client);
+        if (state == null) return;
+
+        state.itemRepository.onVarClientIntChanged(client, event);
     }
 
     @Subscribe

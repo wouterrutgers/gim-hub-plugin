@@ -7,24 +7,15 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import net.runelite.api.Client;
-import net.runelite.api.EnumComposition;
-import net.runelite.api.GameState;
-import net.runelite.api.Item;
-import net.runelite.api.ItemContainer;
+import net.runelite.api.*;
+import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.gameval.InventoryID;
+import net.runelite.api.gameval.ItemID;
+import net.runelite.api.gameval.VarPlayerID;
 import net.runelite.api.widgets.Widget;
 import net.runelite.client.game.ItemManager;
 
 public class PotionStorageItems implements TrackedItemContainer {
-    private static final int POTION_STORE_WIDGET = 786484;
-    private static final int VARP_VIALS_IN_POTION_STORAGE = 4286;
-    private static final int ITEM_VIAL = 229;
-
-    private static final int ENUM_POTIONS_1 = 4826;
-    private static final int ENUM_POTIONS_2 = 4829;
-    private static final int SCRIPT_POTION_STORE_GET_DOSES = 3750;
-
     private ItemsUnordered items = null;
 
     private boolean dirty = true;
@@ -60,7 +51,7 @@ public class PotionStorageItems implements TrackedItemContainer {
             return;
         }
 
-        final Widget widget = client.getWidget(POTION_STORE_WIDGET);
+        final Widget widget = client.getWidget(InterfaceID.Bankmain.POTIONSTORE_ITEMS);
         if (widget == null) {
             // RuneLite invalidates the cached potions when the bank interface unloads.
             items = null;
@@ -88,12 +79,12 @@ public class PotionStorageItems implements TrackedItemContainer {
     private static ItemsUnordered readPotionStorage(Client client, ItemManager itemManager) {
         final List<Item> result = new ArrayList<>();
 
-        final int vials = client.getVarpValue(VARP_VIALS_IN_POTION_STORAGE);
+        final int vials = client.getVarpValue(VarPlayerID.POTIONSTORE_VIALS);
         if (vials > 0) {
-            result.add(new Item(ITEM_VIAL, vials));
+            result.add(new Item(ItemID.VIAL_EMPTY, vials));
         }
 
-        for (final int potionsEnumId : new int[] {ENUM_POTIONS_1, ENUM_POTIONS_2}) {
+        for (final int potionsEnumId : new int[] {EnumID.POTIONSTORE_POTIONS, EnumID.POTIONSTORE_UNFINISHED_POTIONS}) {
             final EnumComposition potionsEnum = client.getEnum(potionsEnumId);
             if (potionsEnum == null || potionsEnum.getIntVals() == null) {
                 continue;
@@ -105,7 +96,7 @@ public class PotionStorageItems implements TrackedItemContainer {
                     continue;
                 }
 
-                client.runScript(SCRIPT_POTION_STORE_GET_DOSES, potionEnumId);
+                client.runScript(ScriptID.POTIONSTORE_DOSES, potionEnumId);
                 int doses = client.getIntStack()[0];
 
                 if (doses <= 0) {

@@ -1,8 +1,10 @@
 package gimhub.items;
 
+import java.util.HashMap;
+import java.util.Map;
+import javax.annotation.Nullable;
 import net.runelite.api.Item;
-import net.runelite.api.gameval.VarPlayerID;
-import net.runelite.api.gameval.VarbitID;
+import net.runelite.api.ItemContainer;
 import net.runelite.client.game.ItemManager;
 
 public final class ItemsUtilities {
@@ -11,27 +13,50 @@ public final class ItemsUtilities {
     public static boolean isItemValid(Item item, ItemManager itemManager) {
         if (item == null) return false;
         final int id = item.getId();
-        final int quantity = item.getQuantity();
         if (itemManager != null) {
             final boolean isPlaceholder = itemManager.getItemComposition(id).getPlaceholderTemplateId() != -1;
 
-            return id >= 0 && quantity >= 0 && !isPlaceholder;
+            return id >= 0 && !isPlaceholder;
         }
         return false;
     }
 
-    public static boolean isQuiver(int varpID) {
-        return varpID == VarPlayerID.DIZANAS_QUIVER_TEMP_AMMO || varpID == VarPlayerID.DIZANAS_QUIVER_TEMP_AMMO_AMOUNT;
+    public static Map<Integer, Integer> convertToSafeMap(
+            @Nullable Map<Integer, Integer> itemsQuantityByID, ItemManager itemManager) {
+        final Map<Integer, Integer> resultQuantityByID = new HashMap<>();
+        if (itemsQuantityByID == null) {
+            return resultQuantityByID;
+        }
+
+        for (final Map.Entry<Integer, Integer> entry : itemsQuantityByID.entrySet()) {
+            final Item item = new Item(entry.getKey(), entry.getValue());
+            if (!ItemsUtilities.isItemValid(item, itemManager)) {
+                continue;
+            }
+
+            final int itemID = itemManager.canonicalize(item.getId());
+            resultQuantityByID.merge(itemID, item.getQuantity(), Integer::sum);
+        }
+
+        return resultQuantityByID;
     }
 
-    public static boolean isRunePouch(int varbitID) {
-        return varbitID == VarbitID.RUNE_POUCH_TYPE_1
-                || varbitID == VarbitID.RUNE_POUCH_QUANTITY_1
-                || varbitID == VarbitID.RUNE_POUCH_TYPE_2
-                || varbitID == VarbitID.RUNE_POUCH_QUANTITY_2
-                || varbitID == VarbitID.RUNE_POUCH_TYPE_3
-                || varbitID == VarbitID.RUNE_POUCH_QUANTITY_3
-                || varbitID == VarbitID.RUNE_POUCH_TYPE_4
-                || varbitID == VarbitID.RUNE_POUCH_QUANTITY_4;
+    public static Map<Integer, Integer> convertToSafeMap(@Nullable ItemContainer container, ItemManager itemManager) {
+        final Map<Integer, Integer> resultQuantityByID = new HashMap<>();
+        if (container == null) {
+            return resultQuantityByID;
+        }
+
+        Item[] contents = container.getItems();
+        for (final Item item : contents) {
+            if (!ItemsUtilities.isItemValid(item, itemManager)) {
+                continue;
+            }
+
+            final int itemID = itemManager.canonicalize(item.getId());
+            resultQuantityByID.merge(itemID, item.getQuantity(), Integer::sum);
+        }
+
+        return resultQuantityByID;
     }
 }

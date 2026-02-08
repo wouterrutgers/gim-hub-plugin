@@ -108,6 +108,9 @@ public class DataManager {
 
                 if (newerValue != null && newerValue.equals(olderValue)) {
                     fieldsThatChanged.remove(entry.getKey());
+                } else if (entry.getKey().endsWith("_partial")) {
+                    // Send incremental updates to the server when we don't know the full state.
+                    fieldsThatChanged.put(entry.getKey(), entry.getValue().diff(newer.fields.get(entry.getKey())));
                 }
             }
 
