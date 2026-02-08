@@ -445,7 +445,7 @@ public class ItemTransferQueue {
                 .filter(entry -> entry.getValue() != 0)
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
-        itemOpQueue.removeAll(itemOpQueue.subList(0, idxOfLastBalancedCheckpoint + 1));
+        itemOpQueue.subList(0, idxOfLastBalancedCheckpoint + 1).clear();
 
         /*
          * This may cause issues when the player opens the bank/tacklebox, since that could cause the next
