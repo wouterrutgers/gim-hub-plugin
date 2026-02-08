@@ -574,8 +574,6 @@ public class ItemTransferQueue {
         final TrackedMenuOptionClicked op = new TrackedMenuOptionClicked(event, client.getTickCount());
 
         final boolean isOpTracked;
-        // TODO: worn items (in deposit box, equipment, and bank). This is unlikely to matter unless the player does a
-        // bunch of weird actions.
         if (op.param1 == InterfaceID.Bankside.ITEMS) {
             final boolean isDeposit = op.identifier >= 2 && op.identifier <= 8;
             final boolean isUseFillEmpty = op.identifier == 9;

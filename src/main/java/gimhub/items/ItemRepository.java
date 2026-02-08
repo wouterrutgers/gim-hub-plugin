@@ -83,7 +83,6 @@ public class ItemRepository {
                 && depositButtonItemsStaged != null) {
             // The message event comes AFTER all the varbits change, so that's why we staged the items already.
 
-            // TODO: do we need to credit these items to ItemTransferQueue to help bookkeeping?
             bank.addItems(depositButtonItemsStaged, itemManager);
 
             depositButtonItemsStaged = null;

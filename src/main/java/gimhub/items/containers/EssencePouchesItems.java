@@ -12,7 +12,6 @@ import net.runelite.api.gameval.ItemID;
 import net.runelite.api.gameval.VarbitID;
 import net.runelite.client.game.ItemManager;
 
-// TODO: update upon Check (which sends a chat message)
 @Slf4j
 public class EssencePouchesItems implements TrackedItemContainer {
     private ItemsUnordered items = null;
