@@ -46,6 +46,7 @@ public class ItemRepository {
             new RunePouchItems(),
             new QuiverItems(),
             new MasterScrollBookItems(),
+            new ToolLeprechaunItems(),
             tackleBox,
             fishBarrel,
         };
