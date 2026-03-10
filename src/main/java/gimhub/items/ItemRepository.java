@@ -47,6 +47,7 @@ public class ItemRepository {
             new QuiverItems(),
             new MasterScrollBookItems(),
             new ToolLeprechaunItems(),
+            new ElnockInquisitorItems(),
             tackleBox,
             fishBarrel,
         };
