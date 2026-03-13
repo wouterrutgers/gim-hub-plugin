@@ -26,21 +26,16 @@ public class GimHubPlugin extends Plugin {
     @Inject
     private ItemManager itemManager;
 
-    @Inject
-    private CollectionLogWidgetSubscriber collectionLogWidgetSubscriber;
-
     private static final int SECONDS_BETWEEN_UPLOADS = 1;
     private static final int SECONDS_BETWEEN_INFREQUENT_DATA_CHANGES = 60;
 
     @Override
     protected void startUp() throws Exception {
-        collectionLogWidgetSubscriber.startUp();
         log.info("GIM hub started!");
     }
 
     @Override
     protected void shutDown() throws Exception {
-        collectionLogWidgetSubscriber.shutDown();
         log.info("GIM hub stopped!");
     }
 
@@ -83,6 +78,8 @@ public class GimHubPlugin extends Plugin {
 
         state.itemRepository.onGameTick(client, itemManager);
 
+        state.collectionLogManager.onGameTick(client);
+
         // It seems onGameTick runs after all other subscribed callbacks, so this is a good spot to stage all the state
         // changes.
         dataManager.stageForSubmitToAPI();
@@ -123,11 +120,20 @@ public class GimHubPlugin extends Plugin {
     }
 
     @Subscribe
+    private void onScriptPreFired(ScriptPreFired event) {
+        PlayerState state = dataManager.getMaybeResetState(client);
+        if (state == null) return;
+
+        state.collectionLogManager.onScriptPreFired(event);
+    }
+
+    @Subscribe
     private void onScriptPostFired(ScriptPostFired event) {
         PlayerState state = dataManager.getMaybeResetState(client);
         if (state == null) return;
 
         state.itemRepository.onScriptPostFired(client, event);
+        state.collectionLogManager.onScriptPostFired(client, event);
     }
 
     @Subscribe
@@ -144,6 +150,14 @@ public class GimHubPlugin extends Plugin {
         if (state == null || event.getSource() != client.getLocalPlayer()) return;
 
         state.activityRepository.updateInteracting(client);
+    }
+
+    @Subscribe
+    private void onGameStateChanged(GameStateChanged event) {
+        PlayerState state = dataManager.getMaybeResetState(client);
+        if (state == null) return;
+
+        state.collectionLogManager.onGameStateChanged(event);
     }
 
     @Provides

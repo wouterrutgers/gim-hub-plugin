@@ -37,9 +37,6 @@ public class DataManager {
     private HttpRequestService httpRequestService;
 
     @Inject
-    private CollectionLogManager collectionLogManager;
-
-    @Inject
     private GimHubConfig config;
 
     @Inject
@@ -54,6 +51,7 @@ public class DataManager {
         public final ActivityRepository activityRepository;
         public final ItemRepository itemRepository;
         public final AchievementRepository achievementRepository;
+        public final CollectionLogManager collectionLogManager;
 
         private FlatState flatten() {
             Map<String, APISerializable> flat = new HashMap<>();
@@ -61,6 +59,7 @@ public class DataManager {
             activityRepository.flatten(flat);
             itemRepository.flatten(flat);
             achievementRepository.flatten(flat);
+            collectionLogManager.flatten(flat);
 
             flat.entrySet().removeIf(e -> e.getValue() == null);
 
@@ -72,6 +71,7 @@ public class DataManager {
             this.activityRepository = new ActivityRepository();
             this.itemRepository = new ItemRepository();
             this.achievementRepository = new AchievementRepository();
+            this.collectionLogManager = new CollectionLogManager();
         }
     }
 
@@ -227,7 +227,6 @@ public class DataManager {
         flatFromFailedRequest = null;
 
         Map<String, Object> updates = flat.serialize();
-        collectionLogManager.consumeState(updates);
 
         // We require greater than 1 since name field is automatically included
         if (updates.size() <= 1) {
@@ -243,10 +242,7 @@ public class DataManager {
                 isMemberInGroup = false;
             }
             flatFromFailedRequest = flat;
-            return;
         }
-
-        collectionLogManager.clearClogItems();
     }
 
     private boolean fetchIsMember(String groupToken, String playerName) {

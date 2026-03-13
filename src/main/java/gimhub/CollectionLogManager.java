@@ -1,45 +1,87 @@
 package gimhub;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
+import gimhub.items.ItemsUnordered;
 import java.util.Map;
-import javax.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
+import net.runelite.api.Client;
 import net.runelite.api.GameState;
+import net.runelite.api.MenuAction;
 import net.runelite.api.events.GameStateChanged;
-import net.runelite.client.eventbus.Subscribe;
+import net.runelite.api.events.ScriptPostFired;
+import net.runelite.api.events.ScriptPreFired;
+import net.runelite.api.gameval.InterfaceID;
+import net.runelite.api.gameval.VarbitID;
 
 @Slf4j
-@Singleton
 public class CollectionLogManager {
-    // item id -> quantity
-    private final Map<Integer, Integer> clogItems = new HashMap<>();
+    private ItemsUnordered clogItems = null;
+
+    private boolean searchTriggered = false;
+    private int searchTriggeredTick = -1;
 
     public synchronized void storeClogItem(int itemId, int quantity) {
-        if (quantity <= 0) return;
-        clogItems.put(itemId, quantity);
-    }
-
-    public synchronized void consumeState(Map<String, Object> updates) {
-        if (clogItems.isEmpty()) return;
-
-        List<Integer> result = new ArrayList<>(clogItems.size() * 2);
-        for (Map.Entry<Integer, Integer> item : clogItems.entrySet()) {
-            result.add(item.getKey());
-            result.add(item.getValue());
+        if (clogItems == null) {
+            clogItems = new ItemsUnordered();
         }
-        updates.put("collection_log_v2", result);
+
+        if (quantity <= 0) return;
+        clogItems.getItemsQuantityByID().put(itemId, quantity);
     }
 
-    public synchronized void clearClogItems() {
-        clogItems.clear();
+    public void flatten(Map<String, APISerializable> flat) {
+        flat.put("collection_log_v2", clogItems);
     }
 
-    @Subscribe
-    public synchronized void onGameStateChanged(GameStateChanged ev) {
-        if (ev.getGameState() != GameState.LOGGED_IN) {
-            clogItems.clear();
+    public void onGameStateChanged(GameStateChanged e) {
+        GameState s = e.getGameState();
+
+        if (s != GameState.HOPPING && s != GameState.LOGGED_IN) {
+            searchTriggered = false;
+            searchTriggeredTick = -1;
+        }
+    }
+
+    public void onGameTick(Client client) {
+        if (searchTriggeredTick != -1) {
+            int currentTick = client.getTickCount();
+
+            if (currentTick - searchTriggeredTick >= 500) {
+                searchTriggered = false;
+                searchTriggeredTick = -1;
+            }
+        }
+    }
+
+    public void onScriptPreFired(ScriptPreFired pre) {
+        // Script 4100 fires when collection log items are enumerated via search
+        if (pre.getScriptId() == 4100) {
+            // Arguments: [widgetId, itemId, qty]
+            Object[] args = pre.getScriptEvent().getArguments();
+            if (args != null && args.length >= 3) {
+                try {
+                    int itemId = (int) args[1];
+                    int quantity = (int) args[2];
+
+                    this.storeClogItem(itemId, quantity);
+                } catch (Exception ignored) {
+                    //
+                }
+            }
+        }
+    }
+
+    public void onScriptPostFired(Client client, ScriptPostFired post) {
+        final int COLLECTION_LOG_SETUP = 7797;
+        if (post.getScriptId() == COLLECTION_LOG_SETUP) {
+            if (searchTriggered) return;
+            boolean isAdventureLog = client.getVarbitValue(VarbitID.COLLECTION_POH_HOST_BOOK_OPEN) == 1;
+            if (isAdventureLog) return;
+
+            searchTriggered = true;
+            searchTriggeredTick = client.getTickCount();
+            client.menuAction(-1, InterfaceID.Collection.SEARCH_TOGGLE, MenuAction.CC_OP, 1, -1, "Search", null);
+            final int COLLECTION_INIT = 2240;
+            client.runScript(COLLECTION_INIT);
         }
     }
 }
