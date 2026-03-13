@@ -5,6 +5,7 @@ import java.util.Map;
 import net.runelite.api.Actor;
 import net.runelite.api.Client;
 import net.runelite.api.Player;
+import net.runelite.api.WorldView;
 import net.runelite.api.WorldEntity;
 import net.runelite.api.coords.WorldPoint;
 
@@ -27,7 +28,7 @@ public class ActivityRepository {
         if (player == null) return;
 
         final int worldViewID = player.getWorldView().getId();
-        final boolean isOnBoat = worldViewID != -1;
+        final boolean isOnBoat = worldViewID != WorldView.TOPLEVEL;
         WorldPoint location = WorldPoint.fromLocalInstance(client, player.getLocalLocation());
         if (isOnBoat) {
             WorldEntity worldEntity =
