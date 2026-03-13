@@ -39,6 +39,7 @@ public class ToolLeprechaunItems implements TrackedItemContainer {
                 || varbitId == VarbitID.FARMING_TOOLS_BUCKETS
                 || varbitId == VarbitID.FARMING_TOOLS_EXTRABUCKETS
                 || varbitId == VarbitID.FARMING_TOOLS_EXTRA2BUCKETS
+                || varbitId == VarbitID.FARMING_TOOLS_BOTTOMLESS_BUCKET_TYPE
                 || varbitId == VarbitID.FARMING_TOOLS_COMPOST
                 || varbitId == VarbitID.FARMING_TOOLS_EXTRACOMPOST
                 || varbitId == VarbitID.FARMING_TOOLS_SUPERCOMPOST
