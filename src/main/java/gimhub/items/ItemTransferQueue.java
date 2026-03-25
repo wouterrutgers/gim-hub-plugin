@@ -95,6 +95,20 @@ public class ItemTransferQueue {
     private static final Map<Integer, Integer> IDENTIFIER_EMPTY_BY_ITEM_ID =
             Map.ofEntries(Map.entry(ItemID.TACKLE_BOX, 4));
 
+    private static TransferDirection getInventoryTransferDirection(int itemId, int identifier) {
+        final Integer fillIdentifier = IDENTIFIER_FILL_BY_ITEM_ID.get(itemId);
+        if (fillIdentifier != null && identifier == fillIdentifier) {
+            return TransferDirection.LOSS;
+        }
+
+        final Integer emptyIdentifier = IDENTIFIER_EMPTY_BY_ITEM_ID.get(itemId);
+        if (emptyIdentifier != null && identifier == emptyIdentifier) {
+            return TransferDirection.GAIN;
+        }
+
+        return TransferDirection.NONE;
+    }
+
     private TrackedContainers previousTickState;
     private final List<TrackedMenuOptionClicked> itemOpQueue = new ArrayList<>();
 
@@ -335,17 +349,8 @@ public class ItemTransferQueue {
                     }
                 }
             } else if (op.param1 == InterfaceID.Inventory.ITEMS) {
-                final int FILL = IDENTIFIER_FILL_BY_ITEM_ID.get(op.itemId);
-                final int EMPTY = IDENTIFIER_EMPTY_BY_ITEM_ID.get(op.itemId);
-                final TransferDirection inventoryExpectedChanges;
-                if (op.identifier == FILL) {
-                    inventoryExpectedChanges = TransferDirection.LOSS;
-                } else if (op.identifier == EMPTY) {
-                    inventoryExpectedChanges = TransferDirection.GAIN;
-                } else {
-                    inventoryExpectedChanges = TransferDirection.NONE;
-                }
-
+                final TransferDirection inventoryExpectedChanges =
+                        getInventoryTransferDirection(op.itemId, op.identifier);
                 if (inventoryExpectedChanges != TransferDirection.NONE) {
                     final Map<Integer, Integer> transferQuantities = filterLaterMinusNow(
                             assumedNow.inventory,
@@ -585,9 +590,7 @@ public class ItemTransferQueue {
         } else if (op.param1 == InterfaceID.Bankmain.ITEMS) {
             isOpTracked = op.identifier >= 1 && op.identifier <= 8;
         } else if (op.param1 == InterfaceID.Inventory.ITEMS) {
-            final int FILL = IDENTIFIER_FILL_BY_ITEM_ID.get(op.itemId);
-            final int EMPTY = IDENTIFIER_EMPTY_BY_ITEM_ID.get(op.itemId);
-            isOpTracked = op.identifier == FILL || op.identifier == EMPTY;
+            isOpTracked = getInventoryTransferDirection(op.itemId, op.identifier) != TransferDirection.NONE;
         } else
             isOpTracked = op.param1 == InterfaceID.BankDepositbox.DEPOSIT_INV
                     || op.param1 == InterfaceID.BankDepositbox.DEPOSIT_WORN
