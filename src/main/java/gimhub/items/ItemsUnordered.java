@@ -16,6 +16,16 @@ public class ItemsUnordered implements APISerializable {
         this.itemsQuantityByID = new HashMap<>();
     }
 
+    public ItemsUnordered(ItemsUnordered items) {
+        this.itemsQuantityByID = new HashMap<>();
+
+        if (items == null) {
+            return;
+        }
+
+        this.itemsQuantityByID.putAll(items.itemsQuantityByID);
+    }
+
     public ItemsUnordered(ItemsOrdered items) {
         this.itemsQuantityByID = new HashMap<>();
 

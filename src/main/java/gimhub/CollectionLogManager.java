@@ -15,6 +15,8 @@ import net.runelite.api.gameval.VarbitID;
 @Slf4j
 public class CollectionLogManager {
     private ItemsUnordered clogItems = null;
+    private ItemsUnordered flattenedClogItems = null;
+    private boolean clogItemsDirty = false;
 
     private boolean searchTriggered = false;
     private int searchTriggeredTick = -1;
@@ -26,10 +28,16 @@ public class CollectionLogManager {
 
         if (quantity <= 0) return;
         clogItems.getItemsQuantityByID().put(itemId, quantity);
+        clogItemsDirty = true;
     }
 
-    public void flatten(Map<String, APISerializable> flat) {
-        flat.put("collection_log_v2", clogItems);
+    public synchronized void flatten(Map<String, APISerializable> flat) {
+        if (clogItemsDirty) {
+            flattenedClogItems = new ItemsUnordered(clogItems);
+            clogItemsDirty = false;
+        }
+
+        flat.put("collection_log_v2", flattenedClogItems);
     }
 
     public void onGameStateChanged(GameStateChanged e) {
