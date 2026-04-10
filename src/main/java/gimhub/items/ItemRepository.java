@@ -18,8 +18,10 @@ import net.runelite.client.game.ItemManager;
 public class ItemRepository {
     private final List<TrackedItemContainer> allContainers;
 
+    // These containers need to be tracked via the ItemTransferQueue, as the player pushes and pulls items.
     private final BankItems bank = new BankItems();
     private final TackleBoxItems tackleBox = new TackleBoxItems();
+    private final HuntsmanKitItems huntsmanKit = new HuntsmanKitItems();
 
     private final ItemTransferQueue itemTransferQueue = new ItemTransferQueue();
 
@@ -49,6 +51,7 @@ public class ItemRepository {
             new ToolLeprechaunItems(),
             new ElnockInquisitorItems(),
             tackleBox,
+                huntsmanKit,
             fishBarrel,
         };
 
@@ -98,25 +101,31 @@ public class ItemRepository {
     public void onGameTick(Client client, ItemManager itemManager) {
         final boolean bankIsOpen = client.getWidget(InterfaceID.Bankmain.UNIVERSE) != null;
         final boolean tackleBoxIsOpen = client.getWidget(InterfaceID.TackleBoxMain.UNIVERSE) != null;
+        final boolean huntsmanKitIsOpen = client.getWidget(InterfaceID.HuntsmansKit.UNIVERSE) != null;
 
         final ItemTransferQueue.TrackedContainers knownState = new ItemTransferQueue.TrackedContainers(
                 ItemsUtilities.convertToSafeMap(client.getItemContainer(InventoryID.INV), itemManager),
                 ItemsUtilities.convertToSafeMap(client.getItemContainer(InventoryID.WORN), itemManager),
                 bank.getBankItems(),
-                tackleBox.getTackleBoxItems());
+                tackleBox.getTackleBoxItems(),
+                huntsmanKit.getHuntsmanKitItems());
 
         ItemTransferQueue.ContainersToUpdate updates = itemTransferQueue.onGameTick(
                 knownState,
                 new ItemTransferQueue.BankSettings(client),
                 client.getTickCount(),
                 bankIsOpen,
-                tackleBoxIsOpen);
+                tackleBoxIsOpen,
+                huntsmanKitIsOpen);
 
         if (!bankIsOpen && updates.bank != null) {
             bank.setItems(updates.bank, itemManager);
         }
         if (!tackleBoxIsOpen && updates.tackleBox != null) {
             tackleBox.setItems(updates.tackleBox, itemManager);
+        }
+        if (!huntsmanKitIsOpen && updates.huntsmanKit != null) {
+            huntsmanKit.setItems(updates.huntsmanKit, itemManager);
         }
 
         for (TrackedItemContainer tracked : allContainers) {

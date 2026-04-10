@@ -1,8 +1,10 @@
 package gimhub.items;
 
+import gimhub.items.containers.HuntsmanKitItems;
 import gimhub.items.containers.TackleBoxItems;
 import java.util.*;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
@@ -19,21 +21,38 @@ public class ItemTransferQueue {
         public final Map<Integer, Integer> equipment;
         public final Map<Integer, Integer> bank;
         public final Map<Integer, Integer> tackleBox;
+        public final Map<Integer, Integer> huntsmanKit;
 
         TrackedContainers(
                 Map<Integer, Integer> inventory,
                 Map<Integer, Integer> equipment,
                 Map<Integer, Integer> bank,
-                Map<Integer, Integer> tackleBox) {
+                Map<Integer, Integer> tackleBox,
+                Map<Integer, Integer> huntsmanKit) {
             this.inventory = inventory;
             this.equipment = equipment;
             this.bank = bank;
             this.tackleBox = tackleBox;
+            this.huntsmanKit = huntsmanKit;
         }
 
         private TrackedContainers deepClone() {
             return new TrackedContainers(
-                    new HashMap<>(inventory), new HashMap<>(equipment), new HashMap<>(bank), new HashMap<>(tackleBox));
+                    new HashMap<>(inventory),
+                    new HashMap<>(equipment),
+                    new HashMap<>(bank),
+                    new HashMap<>(tackleBox),
+                    new HashMap<>(huntsmanKit));
+        }
+
+        @Nullable private Map<Integer, Integer> getRefByItemID(Integer itemID) {
+            if (itemID == ItemID.TACKLE_BOX) {
+                return this.tackleBox;
+            } else if (itemID == ItemID.HUNTSMANS_KIT) {
+                return this.huntsmanKit;
+            }
+
+            return null;
         }
 
         @Override
@@ -46,8 +65,9 @@ public class ItemTransferQueue {
             final boolean equipmentEquals = equipment.equals(other.equipment);
             final boolean bankEquals = bank.equals(other.bank);
             final boolean tackleBoxEquals = tackleBox.equals(other.tackleBox);
+            final boolean huntsmanKitEquals = huntsmanKit.equals(other.huntsmanKit);
 
-            return inventoryEquals && equipmentEquals && bankEquals && tackleBoxEquals;
+            return inventoryEquals && equipmentEquals && bankEquals && tackleBoxEquals && huntsmanKitEquals;
         }
     }
 
@@ -91,9 +111,10 @@ public class ItemTransferQueue {
 
     private static final int TICK_COUNT_FOR_ITEM_TRANSFER_DETECTION = 2;
     private static final Map<Integer, Integer> IDENTIFIER_FILL_BY_ITEM_ID =
-            Map.ofEntries(Map.entry(ItemID.TACKLE_BOX, 3));
+            Map.ofEntries(Map.entry(ItemID.TACKLE_BOX, 3), Map.entry(ItemID.HUNTSMANS_KIT, 3));
+
     private static final Map<Integer, Integer> IDENTIFIER_EMPTY_BY_ITEM_ID =
-            Map.ofEntries(Map.entry(ItemID.TACKLE_BOX, 4));
+            Map.ofEntries(Map.entry(ItemID.TACKLE_BOX, 4), Map.entry(ItemID.HUNTSMANS_KIT, 4));
 
     private static TransferDirection getInventoryTransferDirection(int itemId, int identifier) {
         final Integer fillIdentifier = IDENTIFIER_FILL_BY_ITEM_ID.get(itemId);
@@ -115,6 +136,7 @@ public class ItemTransferQueue {
     public static final class ContainersToUpdate {
         Map<Integer, Integer> bank = null;
         Map<Integer, Integer> tackleBox = null;
+        Map<Integer, Integer> huntsmanKit = null;
     }
 
     public static final class BankSettings {
@@ -174,7 +196,8 @@ public class ItemTransferQueue {
             BankSettings bankSettings,
             int tickCount,
             boolean isBankOpen,
-            boolean isTackleBoxOpen) {
+            boolean isTackleBoxOpen,
+            boolean isHuntsmanKitOpen) {
         itemOpQueue.removeIf(op -> {
             final boolean isUnfinishedQueryXAction = op.isQueryXAction() && op.getQueryXQuantity() == null;
             if (isUnfinishedQueryXAction) {
@@ -188,6 +211,10 @@ public class ItemTransferQueue {
             previousTickState = knownState.deepClone();
             return new ContainersToUpdate();
         }
+
+        final Map<Integer, Set<Integer>> filterByItemID = Map.ofEntries(
+                Map.entry(ItemID.TACKLE_BOX, TackleBoxItems.getItemFilter()),
+                Map.entry(ItemID.HUNTSMANS_KIT, HuntsmanKitItems.getItemFilter()));
 
         final TrackedContainers assumedStart = previousTickState.deepClone();
         TrackedContainers assumedNow = assumedStart.deepClone();
@@ -239,15 +266,14 @@ public class ItemTransferQueue {
                             assumedNow.bank.merge(depositedItemID, actualQuantityDeposited, Integer::sum);
                         }
                     }
-                } else if (isUseFillEmpty && op.itemId == ItemID.TACKLE_BOX) {
-                    final TransferDirection inventoryExpectedChanges = determineNetLaterMinusNow(
-                            assumedNow.inventory, knownState.inventory, TackleBoxItems.getItemFilter());
+                } else if (isUseFillEmpty && filterByItemID.containsKey(op.itemId)) {
+                    final Set<Integer> filter = filterByItemID.get(op.itemId);
+
+                    final TransferDirection inventoryExpectedChanges =
+                            determineNetLaterMinusNow(assumedNow.inventory, knownState.inventory, filter);
                     final Map<Integer, Integer> transferQuantities = filterLaterMinusNow(
-                            assumedNow.inventory,
-                            knownState.inventory,
-                            TackleBoxItems.getItemFilter(),
-                            inventoryExpectedChanges);
-                    performTransfer(assumedNow.tackleBox, assumedNow.inventory, transferQuantities);
+                            assumedNow.inventory, knownState.inventory, filter, inventoryExpectedChanges);
+                    performTransfer(assumedNow.getRefByItemID(op.itemId), assumedNow.inventory, transferQuantities);
                 }
             } else if (op.param1 == InterfaceID.BankDepositbox.INVENTORY) {
                 boolean isDeposit = op.identifier >= 1 && op.identifier <= 6;
@@ -291,15 +317,14 @@ public class ItemTransferQueue {
                             assumedNow.bank.merge(depositedItemID, actualQuantityDeposited, Integer::sum);
                         }
                     }
-                } else if (isUseFillEmpty && op.itemId == ItemID.TACKLE_BOX) {
-                    final TransferDirection inventoryExpectedChanges = determineNetLaterMinusNow(
-                            assumedNow.inventory, knownState.inventory, TackleBoxItems.getItemFilter());
+                } else if (isUseFillEmpty && filterByItemID.containsKey(op.itemId)) {
+                    final Set<Integer> filter = filterByItemID.get(op.itemId);
+
+                    final TransferDirection inventoryExpectedChanges =
+                            determineNetLaterMinusNow(assumedNow.inventory, knownState.inventory, filter);
                     final Map<Integer, Integer> transferQuantities = filterLaterMinusNow(
-                            assumedNow.inventory,
-                            knownState.inventory,
-                            TackleBoxItems.getItemFilter(),
-                            inventoryExpectedChanges);
-                    performTransfer(assumedNow.tackleBox, assumedNow.inventory, transferQuantities);
+                            assumedNow.inventory, knownState.inventory, filter, inventoryExpectedChanges);
+                    performTransfer(assumedNow.getRefByItemID(op.itemId), assumedNow.inventory, transferQuantities);
                 }
             } else if (op.param1 == InterfaceID.Bankmain.ITEMS) {
                 boolean isWithdraw = op.identifier >= 1 && op.identifier <= 8;
@@ -349,15 +374,15 @@ public class ItemTransferQueue {
                     }
                 }
             } else if (op.param1 == InterfaceID.Inventory.ITEMS) {
+
                 final TransferDirection inventoryExpectedChanges =
                         getInventoryTransferDirection(op.itemId, op.identifier);
                 if (inventoryExpectedChanges != TransferDirection.NONE) {
+                    final Set<Integer> filter = filterByItemID.get(op.itemId);
+
                     final Map<Integer, Integer> transferQuantities = filterLaterMinusNow(
-                            assumedNow.inventory,
-                            knownState.inventory,
-                            TackleBoxItems.getItemFilter(),
-                            inventoryExpectedChanges);
-                    performTransfer(assumedNow.tackleBox, assumedNow.inventory, transferQuantities);
+                            assumedNow.inventory, knownState.inventory, filter, inventoryExpectedChanges);
+                    performTransfer(assumedNow.getRefByItemID(op.itemId), assumedNow.inventory, transferQuantities);
                 }
             } else if (op.param1 == InterfaceID.BankDepositbox.DEPOSIT_INV) {
                 for (final int itemID : assumedNow.inventory.keySet()) {
@@ -397,7 +422,10 @@ public class ItemTransferQueue {
 
         int idxOfLastBalancedCheckpoint = -1;
 
-        final Set<Integer> itemsRequiredToBeBalanced = Set.copyOf(TackleBoxItems.getItemFilter());
+        final Set<Integer> itemsRequiredToBeBalanced = new HashSet<>();
+        itemsRequiredToBeBalanced.addAll(TackleBoxItems.getItemFilter());
+        itemsRequiredToBeBalanced.addAll(HuntsmanKitItems.getItemFilter());
+
         for (int checkpointIdx = assumedCheckpoints.size() - 1; checkpointIdx >= 0; checkpointIdx--) {
             final TrackedContainers checkpoint = assumedCheckpoints.get(checkpointIdx);
 
@@ -449,16 +477,19 @@ public class ItemTransferQueue {
         result.tackleBox = mostUpToDateCheckpoint.tackleBox.entrySet().stream()
                 .filter(entry -> entry.getValue() != 0)
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        result.huntsmanKit = mostUpToDateCheckpoint.huntsmanKit.entrySet().stream()
+                .filter(entry -> entry.getValue() != 0)
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
         itemOpQueue.subList(0, idxOfLastBalancedCheckpoint + 1).clear();
 
         /*
-         * This may cause issues when the player opens the bank/tacklebox, since that could cause the next
+         * This may cause issues when the player opens the bank/tacklebox/huntsman kit, since that could cause the next
          * invocation of this method to attempt to attribute that massive influx/outflux of items to some
          * user input.
          *
-         * Hopefully not an issue: the returned ContainersToUpdate should only be copied out when the bank/tacklebox
-         * are closed.
+         * Hopefully not an issue: the returned ContainersToUpdate should only be copied out when the
+         * bank/tacklebox/huntsman kit are closed.
          *
          * Copying from knownState where possible helps smooth out desync.
          */
@@ -466,7 +497,8 @@ public class ItemTransferQueue {
                 knownState.inventory,
                 knownState.equipment,
                 isBankOpen ? knownState.bank : result.bank,
-                isTackleBoxOpen ? knownState.tackleBox : result.tackleBox);
+                isTackleBoxOpen ? knownState.tackleBox : result.tackleBox,
+                isHuntsmanKitOpen ? knownState.huntsmanKit : result.huntsmanKit);
         return result;
     }
 
