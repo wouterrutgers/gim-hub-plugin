@@ -9,3 +9,4 @@ nb-configuration.xml
 nbproject/
 .#*
 .vscode/
+.DS_Store
