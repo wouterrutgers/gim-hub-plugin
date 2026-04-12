@@ -2,6 +2,7 @@ package gimhub;
 
 import gimhub.achievement.AchievementRepository;
 import gimhub.activity.ActivityRepository;
+import gimhub.activity.LeagueMode;
 import gimhub.items.ItemRepository;
 import java.util.HashMap;
 import java.util.Map;
@@ -48,6 +49,7 @@ public class DataManager {
     /** Our tracked state of the player: their stats, items, location, etc. */
     public static class PlayerState {
         public final String ownedPlayer;
+        public final RuneScapeProfileType ownedProfileType;
         public final ActivityRepository activityRepository;
         public final ItemRepository itemRepository;
         public final AchievementRepository achievementRepository;
@@ -63,11 +65,12 @@ public class DataManager {
 
             flat.entrySet().removeIf(e -> e.getValue() == null);
 
-            return new FlatState(ownedPlayer, flat);
+            return new FlatState(ownedPlayer, ownedProfileType, flat);
         }
 
-        PlayerState(String ownedPlayer) {
+        PlayerState(String ownedPlayer, RuneScapeProfileType ownedProfileType) {
             this.ownedPlayer = ownedPlayer;
+            this.ownedProfileType = ownedProfileType;
             this.activityRepository = new ActivityRepository();
             this.itemRepository = new ItemRepository();
             this.achievementRepository = new AchievementRepository();
@@ -80,24 +83,27 @@ public class DataManager {
         @Getter
         private final String ownedPlayer;
 
+        private final RuneScapeProfileType ownedProfileType;
         private final Map<String, APISerializable> fields;
 
+        private boolean hasDifferentOwner(FlatState other) {
+            return !ownedPlayer.equals(other.ownedPlayer) || ownedProfileType != other.ownedProfileType;
+        }
+
         public static FlatState combineWithPriority(FlatState priority, FlatState defaults) {
-            final boolean samePlayer = priority.ownedPlayer.equals(defaults.ownedPlayer);
-            if (!samePlayer) {
-                return new FlatState(priority.ownedPlayer, new HashMap<>(priority.fields));
+            if (priority.hasDifferentOwner(defaults)) {
+                return new FlatState(priority.ownedPlayer, priority.ownedProfileType, new HashMap<>(priority.fields));
             }
 
             Map<String, APISerializable> mergedFields = new HashMap<>(defaults.fields);
             mergedFields.putAll(priority.fields);
 
-            return new FlatState(priority.ownedPlayer, mergedFields);
+            return new FlatState(priority.ownedPlayer, priority.ownedProfileType, mergedFields);
         }
 
         public static FlatState diffKeepChangedFields(FlatState newer, FlatState older) {
-            final boolean samePlayer = newer.ownedPlayer.equals(older.ownedPlayer);
-            if (!samePlayer) {
-                return new FlatState(newer.ownedPlayer, new HashMap<>(newer.fields));
+            if (newer.hasDifferentOwner(older)) {
+                return new FlatState(newer.ownedPlayer, newer.ownedProfileType, new HashMap<>(newer.fields));
             }
 
             Map<String, APISerializable> fieldsThatChanged = new HashMap<>(newer.fields);
@@ -114,45 +120,51 @@ public class DataManager {
                 }
             }
 
-            return new FlatState(newer.ownedPlayer, fieldsThatChanged);
+            return new FlatState(newer.ownedPlayer, newer.ownedProfileType, fieldsThatChanged);
         }
 
         public Map<String, Object> serialize() {
             Map<String, Object> serialized = fields.entrySet().stream()
                     .collect(Collectors.toMap(Entry::getKey, e -> e.getValue().serialize()));
             serialized.put("name", ownedPlayer);
+            serialized.put("league_mode", new int[] {LeagueMode.isEnabled(ownedProfileType) ? 1 : 0});
             return serialized;
         }
 
-        FlatState(String player, Map<String, APISerializable> fields) {
+        FlatState(String player, RuneScapeProfileType ownedProfileType, Map<String, APISerializable> fields) {
             this.ownedPlayer = player;
+            this.ownedProfileType = ownedProfileType;
             this.fields = fields;
         }
     }
 
     /**
      * Call from Client thread. Get the PlayerState to then write updates to. Checks the passed client to see if the
-     * player changes and is valid (logged in, not seasonal, etc.). If the player name changes, then the state is reset
-     * before being returned.
+     * player changes and is valid. If the player name or profile changes, then the state is reset before being
+     * returned.
      *
      * @return The current valid PlayerState, or null if the Player is invalid.
      */
     @Nullable public PlayerState getMaybeResetState(Client client) {
-        final boolean isStandardProfile = RuneScapeProfileType.getCurrent(client) == RuneScapeProfileType.STANDARD;
+        final RuneScapeProfileType profileType = RuneScapeProfileType.getCurrent(client);
         final boolean isValidPlayerLoggedIn = client.getGameState() == GameState.LOGGED_IN
                 && client.getLocalPlayer() != null
                 && client.getLocalPlayer().getName() != null;
 
-        if (!isValidPlayerLoggedIn || !isStandardProfile) {
+        if (!isValidPlayerLoggedIn || !isSupportedProfile(profileType)) {
             return null;
         }
 
         final String player = client.getLocalPlayer().getName();
-        if (state == null || !state.ownedPlayer.equals(player)) {
-            state = new PlayerState(player);
+        if (state == null || !state.ownedPlayer.equals(player) || state.ownedProfileType != profileType) {
+            state = new PlayerState(player, profileType);
         }
 
         return state;
+    }
+
+    private boolean isSupportedProfile(RuneScapeProfileType profileType) {
+        return profileType == RuneScapeProfileType.STANDARD || LeagueMode.isEnabled(profileType);
     }
 
     /** Call from the Client thread. Releases state updates to the request thread. */
