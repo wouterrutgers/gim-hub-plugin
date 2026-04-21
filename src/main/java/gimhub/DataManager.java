@@ -54,6 +54,7 @@ public class DataManager {
         public final ItemRepository itemRepository;
         public final AchievementRepository achievementRepository;
         public final CollectionLogManager collectionLogManager;
+        public final LeagueSummaryManager leagueSummaryManager;
 
         private FlatState flatten() {
             Map<String, APISerializable> flat = new HashMap<>();
@@ -62,6 +63,7 @@ public class DataManager {
             itemRepository.flatten(flat);
             achievementRepository.flatten(flat);
             collectionLogManager.flatten(flat);
+            leagueSummaryManager.flatten(flat);
 
             flat.entrySet().removeIf(e -> e.getValue() == null);
 
@@ -75,6 +77,7 @@ public class DataManager {
             this.itemRepository = new ItemRepository();
             this.achievementRepository = new AchievementRepository();
             this.collectionLogManager = new CollectionLogManager();
+            this.leagueSummaryManager = new LeagueSummaryManager();
         }
     }
 
