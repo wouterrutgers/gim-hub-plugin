@@ -2,6 +2,7 @@ package gimhub;
 
 import com.google.inject.Provides;
 import gimhub.DataManager.PlayerState;
+import gimhub.activity.LeagueMode;
 import java.time.temporal.ChronoUnit;
 import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
@@ -75,6 +76,9 @@ public class GimHubPlugin extends Plugin {
         state.activityRepository.updateInteracting(client);
         state.activityRepository.updateResources(client);
         state.activityRepository.updateLocation(client);
+        if (LeagueMode.isEnabled(state.ownedProfileType)) {
+            state.leagueSummaryManager.update(client);
+        }
 
         state.itemRepository.onGameTick(client, itemManager);
 
