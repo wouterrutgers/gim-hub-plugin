@@ -6,4 +6,8 @@ public interface APISerializable {
     default APISerializable diff(APISerializable newer) {
         return this;
     }
+
+    default boolean isBaselineProperty() {
+        return false;
+    }
 }

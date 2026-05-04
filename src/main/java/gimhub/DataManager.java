@@ -4,6 +4,8 @@ import gimhub.achievement.AchievementRepository;
 import gimhub.activity.ActivityRepository;
 import gimhub.activity.LeagueMode;
 import gimhub.items.ItemRepository;
+import gimhub.states.LeagueModeState;
+import gimhub.states.PlayerNameState;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -58,6 +60,8 @@ public class DataManager {
         private FlatState flatten() {
             Map<String, APISerializable> flat = new HashMap<>();
 
+            flat.put("name", new PlayerNameState(ownedPlayer));
+            flat.put("league_mode", new LeagueModeState(ownedProfileType));
             activityRepository.flatten(flat);
             itemRepository.flatten(flat);
             achievementRepository.flatten(flat);
@@ -112,6 +116,10 @@ public class DataManager {
                 APISerializable newerValue = fieldsThatChanged.get(entry.getKey());
                 APISerializable olderValue = entry.getValue();
 
+                if (olderValue.isBaselineProperty()) {
+                    continue;
+                }
+
                 if (newerValue != null && newerValue.equals(olderValue)) {
                     fieldsThatChanged.remove(entry.getKey());
                 } else if (entry.getKey().endsWith("_partial")) {
@@ -123,12 +131,12 @@ public class DataManager {
             return new FlatState(newer.ownedPlayer, newer.ownedProfileType, fieldsThatChanged);
         }
 
+        public boolean hasChangesBeyondBaseline() {
+            return fields.values().stream().anyMatch(field -> !field.isBaselineProperty());
+        }
+
         public Map<String, Object> serialize() {
-            Map<String, Object> serialized = fields.entrySet().stream()
-                    .collect(Collectors.toMap(Entry::getKey, e -> e.getValue().serialize()));
-            serialized.put("name", ownedPlayer);
-            serialized.put("league_mode", new int[] {LeagueMode.isEnabled(ownedProfileType) ? 1 : 0});
-            return serialized;
+            return fields.entrySet().stream().collect(Collectors.toMap(Entry::getKey, e -> e.getValue().serialize()));
         }
 
         FlatState(String player, RuneScapeProfileType ownedProfileType, Map<String, APISerializable> fields) {
@@ -240,8 +248,7 @@ public class DataManager {
 
         Map<String, Object> updates = flat.serialize();
 
-        // We require greater than 1 since name field is automatically included
-        if (updates.size() <= 1) {
+        if (!flat.hasChangesBeyondBaseline()) {
             log.debug("Skip POST: no changes to send (fields={})", updates.size());
             return;
         }
