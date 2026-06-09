@@ -6,6 +6,7 @@ import gimhub.activity.LeagueMode;
 import gimhub.items.ItemRepository;
 import gimhub.states.LeagueModeState;
 import gimhub.states.PlayerNameState;
+import gimhub.states.TimezoneState;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -62,6 +63,7 @@ public class DataManager {
 
             flat.put("name", new PlayerNameState(ownedPlayer));
             flat.put("league_mode", new LeagueModeState(ownedProfileType));
+            flat.put("timezone", new TimezoneState());
             activityRepository.flatten(flat);
             itemRepository.flatten(flat);
             achievementRepository.flatten(flat);
@@ -136,7 +138,8 @@ public class DataManager {
         }
 
         public Map<String, Object> serialize() {
-            return fields.entrySet().stream().collect(Collectors.toMap(Entry::getKey, e -> e.getValue().serialize()));
+            return fields.entrySet().stream()
+                    .collect(Collectors.toMap(Entry::getKey, e -> e.getValue().serialize()));
         }
 
         FlatState(String player, RuneScapeProfileType ownedProfileType, Map<String, APISerializable> fields) {
