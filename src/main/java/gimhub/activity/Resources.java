@@ -3,6 +3,7 @@ package gimhub.activity;
 import gimhub.APISerializable;
 import net.runelite.api.Client;
 import net.runelite.api.Skill;
+import net.runelite.api.gameval.VarPlayerID;
 
 public class Resources implements APISerializable {
     private static class CurrentMax {
@@ -29,6 +30,7 @@ public class Resources implements APISerializable {
     private final CurrentMax prayer;
     private final CurrentMax energy;
     private final int world;
+    private final int specialAttack;
 
     Resources(Client client) {
         this.hitpoints =
@@ -36,12 +38,20 @@ public class Resources implements APISerializable {
         this.prayer = new CurrentMax(client.getBoostedSkillLevel(Skill.PRAYER), client.getRealSkillLevel(Skill.PRAYER));
         this.energy = new CurrentMax(client.getEnergy(), 100);
         this.world = client.getWorld();
+        this.specialAttack = client.getVarpValue(VarPlayerID.SA_ENERGY) / 10;
     }
 
     @Override
     public Object serialize() {
         return new int[] {
-            hitpoints.current, hitpoints.max, prayer.current, prayer.max, energy.current, energy.max, world
+            hitpoints.current,
+            hitpoints.max,
+            prayer.current,
+            prayer.max,
+            energy.current,
+            energy.max,
+            world,
+            specialAttack
         };
     }
 
@@ -53,6 +63,7 @@ public class Resources implements APISerializable {
         Resources other = (Resources) o;
 
         return other.world == world
+                && other.specialAttack == specialAttack
                 && other.hitpoints.equals(hitpoints)
                 && other.prayer.equals(prayer)
                 && other.energy.equals(energy);
