@@ -26,6 +26,9 @@ public class GimHubPlugin extends Plugin {
     @Inject
     private ItemManager itemManager;
 
+    @Inject
+    private CollectionLogItemResolver collectionLogItemResolver;
+
     private static final int SECONDS_BETWEEN_UPLOADS = 1;
     private static final int SECONDS_BETWEEN_INFREQUENT_DATA_CHANGES = 60;
 
@@ -64,6 +67,7 @@ public class GimHubPlugin extends Plugin {
         final int varpId = event.getVarpId();
         final int varbitId = event.getVarbitId();
 
+        state.collectionLogManager.onVarbitChanged(client, event);
         state.itemRepository.onVarbitChanged(client, varpId, varbitId, itemManager);
     }
 
@@ -90,6 +94,7 @@ public class GimHubPlugin extends Plugin {
         PlayerState state = dataManager.getMaybeResetState(client);
         if (state == null) return;
 
+        state.collectionLogManager.onChatMessage(client, event, collectionLogItemResolver);
         state.itemRepository.onChatMessage(client, event, itemManager);
     }
 
@@ -124,7 +129,7 @@ public class GimHubPlugin extends Plugin {
         PlayerState state = dataManager.getMaybeResetState(client);
         if (state == null) return;
 
-        state.collectionLogManager.onScriptPreFired(event);
+        state.collectionLogManager.onScriptPreFired(client, event, collectionLogItemResolver);
     }
 
     @Subscribe
@@ -154,10 +159,7 @@ public class GimHubPlugin extends Plugin {
 
     @Subscribe
     private void onGameStateChanged(GameStateChanged event) {
-        PlayerState state = dataManager.getMaybeResetState(client);
-        if (state == null) return;
-
-        state.collectionLogManager.onGameStateChanged(event);
+        dataManager.onGameStateChanged(event);
     }
 
     @Provides

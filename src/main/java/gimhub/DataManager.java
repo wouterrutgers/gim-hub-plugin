@@ -19,6 +19,7 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
+import net.runelite.api.events.GameStateChanged;
 import net.runelite.client.config.RuneScapeProfileType;
 
 @Slf4j
@@ -176,6 +177,12 @@ public class DataManager {
 
     private boolean isSupportedProfile(RuneScapeProfileType profileType) {
         return profileType == RuneScapeProfileType.STANDARD || LeagueMode.isEnabled(profileType);
+    }
+
+    public void onGameStateChanged(GameStateChanged event) {
+        if (state != null) {
+            state.collectionLogManager.onGameStateChanged(event);
+        }
     }
 
     /** Call from the Client thread. Releases state updates to the request thread. */
