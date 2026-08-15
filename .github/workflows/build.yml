@@ -1,10 +1,11 @@
-name: Build
+name: Test and build
 
 on:
   push:
+  pull_request:
 
 jobs:
-  build:
+  test-and-build:
     runs-on: ubuntu-latest
     
     steps:
@@ -19,5 +20,8 @@ jobs:
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v3
     
+    - name: Run tests
+      run: ./gradlew test
+
     - name: Build with Gradle
       run: ./gradlew build

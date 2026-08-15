@@ -20,4 +20,4 @@ jobs:
       uses: gradle/actions/setup-gradle@v3
     
     - name: Run Spotless check
-      run: ./gradlew -b local.gradle spotlessCheck
+      run: ./gradlew spotlessCheck
