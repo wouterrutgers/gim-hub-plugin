@@ -43,6 +43,14 @@ public class ApiUrlBuilderTest {
     }
 
     @Test
+    public void buildsRelayChatUrl() {
+        when(configuration.groupName()).thenReturn("iron-friends");
+
+        assertEquals(
+                "https://gim-hub.test/api/group/iron-friends/relay-chat", apiUrlBuilder.getRelayChatUrl());
+    }
+
+    @Test
     public void returnsNullWithoutGroupOrBaseUrl() {
         when(configuration.groupName()).thenReturn("  ");
         assertNull(apiUrlBuilder.getUpdateGroupMemberUrl());

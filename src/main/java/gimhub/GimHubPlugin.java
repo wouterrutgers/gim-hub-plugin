@@ -96,6 +96,7 @@ public class GimHubPlugin extends Plugin {
 
         state.collectionLogManager.onChatMessage(client, event, collectionLogItemResolver);
         state.itemRepository.onChatMessage(client, event, itemManager);
+        dataManager.maybeRelayGroupChat(client, event);
     }
 
     @Subscribe

@@ -2,9 +2,11 @@ package gimhub;
 
 import com.google.gson.Gson;
 import java.io.IOException;
+import java.util.function.Consumer;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import lombok.Getter;
+import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.client.RuneLiteProperties;
 import okhttp3.*;
@@ -38,6 +40,29 @@ public class HttpRequestService {
         Request request = buildRequest(url, authToken).post(body).build();
 
         return executeRequest(request, "POST", url, requestJson);
+    }
+
+    public void asyncPost(String url, String authToken, Object requestBody, Consumer<HttpResponse> callback) {
+        String requestJson = gson.toJson(requestBody);
+        RequestBody body = RequestBody.create(JSON, requestJson);
+        Request request = buildRequest(url, authToken).post(body).build();
+
+        okHttpClient.newCall(request).enqueue(new Callback() {
+            @Override
+            public void onFailure(@NonNull Call call, @NonNull IOException e) {
+                log.warn("POST {} failed: {}", url, e.toString());
+                callback.accept(new HttpResponse(false, -1, e.getMessage()));
+            }
+
+            @Override
+            public void onResponse(@NonNull Call call, @NonNull Response response) {
+                try (Response r = response) {
+                    String responseBody = readBodySafe(r);
+                    logRequest("POST", url, requestJson, r, responseBody);
+                    callback.accept(new HttpResponse(r.isSuccessful(), r.code(), responseBody));
+                }
+            }
+        });
     }
 
     private Request.Builder buildRequest(String url, String authToken) {

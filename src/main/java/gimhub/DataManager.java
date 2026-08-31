@@ -7,6 +7,7 @@ import gimhub.items.ItemRepository;
 import gimhub.states.LeagueModeState;
 import gimhub.states.PlayerNameState;
 import gimhub.states.TimezoneState;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -17,10 +18,14 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
+import net.runelite.api.Player;
+import net.runelite.api.events.ChatMessage;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.client.config.RuneScapeProfileType;
+import net.runelite.client.util.Text;
 
 @Slf4j
 @Singleton
@@ -263,6 +268,8 @@ public class DataManager {
             return;
         }
 
+        updates.put("chat_relay_enabled", config.chatRelayEnabled());
+
         HttpRequestService.HttpResponse response = httpRequestService.post(url, groupToken, updates);
 
         if (!response.isSuccessful()) {
@@ -272,6 +279,49 @@ public class DataManager {
             }
             flatFromFailedRequest = flat;
         }
+    }
+
+    /**
+     * Call from the Client thread. If chat relay is enabled and the given event is a Group Ironman group chat message
+     * sent by the currently logged-in player, relays the message to the server asynchronously.
+     */
+    public void maybeRelayGroupChat(Client client, ChatMessage event) {
+        if (!config.chatRelayEnabled()) return;
+        if (event.getType() != ChatMessageType.CLAN_GIM_CHAT) return;
+
+        Player localPlayer = client.getLocalPlayer();
+        if (localPlayer == null || localPlayer.getName() == null) return;
+
+        if (!Text.removeTags(event.getName()).equals(localPlayer.getName())) return;
+
+        String groupToken = config.authorizationToken().trim();
+        if (groupToken.isEmpty()) return;
+
+        String url = apiUrlBuilder.getRelayChatUrl();
+        if (url == null) {
+            log.debug("Skip chat relay: relay URL is null (check base URL and group name).");
+            return;
+        }
+
+        String message = event.getMessage();
+        if (message.length() > 500) {
+            log.warn("Skip chat relay: message exceeds 500 characters ({} chars)", message.length());
+            return;
+        }
+
+        Map<String, Object> body = new HashMap<>();
+        body.put("name", localPlayer.getName());
+        body.put("message", message);
+        body.put("sent_at", Instant.now().toString());
+
+        httpRequestService.asyncPost(url, groupToken, body, response -> {
+            if (response.isSuccessful()) return;
+            if (response.getCode() == 403) {
+                log.warn("Chat relay rejected by server (403): chat relay is disabled for this player on the server");
+            } else {
+                log.warn("Chat relay failed: HTTP {}", response.getCode());
+            }
+        });
     }
 
     private boolean fetchIsMember(String groupToken, String playerName) {

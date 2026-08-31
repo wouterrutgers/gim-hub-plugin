@@ -1,10 +1,13 @@
 package gimhub;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -15,10 +18,12 @@ import static org.mockito.Mockito.when;
 import java.lang.reflect.Field;
 import java.util.EnumSet;
 import java.util.Map;
+import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.Player;
 import net.runelite.api.WorldType;
+import net.runelite.api.events.ChatMessage;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
@@ -26,6 +31,7 @@ import org.mockito.ArgumentCaptor;
 public class DataManagerTest {
     private Client client;
     private Player player;
+    private GimHubConfig configuration;
     private HttpRequestService httpRequestService;
     private DataManager dataManager;
 
@@ -33,7 +39,7 @@ public class DataManagerTest {
     public void setUp() throws ReflectiveOperationException {
         client = mock(Client.class);
         player = mock(Player.class);
-        GimHubConfig configuration = mock(GimHubConfig.class);
+        configuration = mock(GimHubConfig.class);
         ApiUrlBuilder apiUrlBuilder = mock(ApiUrlBuilder.class);
         httpRequestService = mock(HttpRequestService.class);
         dataManager = new DataManager();
@@ -46,8 +52,10 @@ public class DataManagerTest {
         when(client.getLocalPlayer()).thenReturn(player);
         when(player.getName()).thenReturn("Player one");
         when(configuration.authorizationToken()).thenReturn(" group-token ");
+        when(configuration.chatRelayEnabled()).thenReturn(true);
         when(apiUrlBuilder.getMembershipCheckUrl("Player one")).thenReturn("https://gim-hub.test/membership");
         when(apiUrlBuilder.getUpdateGroupMemberUrl()).thenReturn("https://gim-hub.test/update");
+        when(apiUrlBuilder.getRelayChatUrl()).thenReturn("https://gim-hub.test/relay-chat");
         when(httpRequestService.get("https://gim-hub.test/membership", "group-token"))
                 .thenReturn(response(true, 200));
         when(httpRequestService.post(eq("https://gim-hub.test/update"), eq("group-token"), anyMap()))
@@ -95,6 +103,7 @@ public class DataManagerTest {
         assertTrue(updates.getValue().containsKey("league_mode"));
         assertTrue(updates.getValue().containsKey("timezone"));
         assertTrue(updates.getValue().containsKey("stats"));
+        assertEquals(true, updates.getValue().get("chat_relay_enabled"));
     }
 
     @Test
@@ -134,6 +143,96 @@ public class DataManagerTest {
         Map<String, Object> retriedUpdates = updates.getAllValues().get(1);
         assertTrue(retriedUpdates.containsKey("stats"));
         assertTrue(retriedUpdates.containsKey("skills"));
+    }
+
+    @Test
+    public void relaysGimGroupChatFromLocalPlayer() {
+        dataManager.getMaybeResetState(client);
+
+        ChatMessage event = mock(ChatMessage.class);
+        when(event.getType()).thenReturn(ChatMessageType.CLAN_GIM_CHAT);
+        when(event.getName()).thenReturn("Player one");
+        when(event.getMessage()).thenReturn("Hello group!");
+
+        dataManager.maybeRelayGroupChat(client, event);
+
+        ArgumentCaptor<Map<String, Object>> body = ArgumentCaptor.forClass(Map.class);
+        verify(httpRequestService)
+                .asyncPost(eq("https://gim-hub.test/relay-chat"), eq("group-token"), body.capture(), any());
+        assertEquals("Player one", body.getValue().get("name"));
+        assertEquals("Hello group!", body.getValue().get("message"));
+        assertTrue(body.getValue().containsKey("sent_at"));
+    }
+
+    @Test
+    public void doesNotRelayGimChatFromOtherPlayers() {
+        dataManager.getMaybeResetState(client);
+
+        ChatMessage event = mock(ChatMessage.class);
+        when(event.getType()).thenReturn(ChatMessageType.CLAN_GIM_CHAT);
+        when(event.getName()).thenReturn("Player two");
+        when(event.getMessage()).thenReturn("Hello group!");
+
+        dataManager.maybeRelayGroupChat(client, event);
+
+        verify(httpRequestService, never()).asyncPost(anyString(), anyString(), anyMap(), any());
+    }
+
+    @Test
+    public void doesNotRelayNonGimChatTypes() {
+        dataManager.getMaybeResetState(client);
+
+        ChatMessage event = mock(ChatMessage.class);
+        when(event.getType()).thenReturn(ChatMessageType.PUBLICCHAT);
+        when(event.getName()).thenReturn("Player one");
+        when(event.getMessage()).thenReturn("Hello world!");
+
+        dataManager.maybeRelayGroupChat(client, event);
+
+        verify(httpRequestService, never()).asyncPost(anyString(), anyString(), anyMap(), any());
+    }
+
+    @Test
+    public void doesNotRelayWhenChatRelayDisabled() {
+        when(configuration.chatRelayEnabled()).thenReturn(false);
+        dataManager.getMaybeResetState(client);
+
+        ChatMessage event = mock(ChatMessage.class);
+        when(event.getType()).thenReturn(ChatMessageType.CLAN_GIM_CHAT);
+        when(event.getName()).thenReturn("Player one");
+        when(event.getMessage()).thenReturn("Hello group!");
+
+        dataManager.maybeRelayGroupChat(client, event);
+
+        verify(httpRequestService, never()).asyncPost(anyString(), anyString(), anyMap(), any());
+    }
+
+    @Test
+    public void doesNotRelayWhenMessageExceeds500Characters() {
+        dataManager.getMaybeResetState(client);
+
+        ChatMessage event = mock(ChatMessage.class);
+        when(event.getType()).thenReturn(ChatMessageType.CLAN_GIM_CHAT);
+        when(event.getName()).thenReturn("Player one");
+        when(event.getMessage()).thenReturn("x".repeat(501));
+
+        dataManager.maybeRelayGroupChat(client, event);
+
+        verify(httpRequestService, never()).asyncPost(anyString(), anyString(), anyMap(), any());
+    }
+
+    @Test
+    public void includesChatRelayEnabledInUpdateRequest() {
+        when(configuration.chatRelayEnabled()).thenReturn(false);
+        DataManager.PlayerState state = dataManager.getMaybeResetState(client);
+        state.activityRepository.updateResources(client);
+        dataManager.stageForSubmitToAPI();
+
+        dataManager.submitToApi("Player one");
+
+        ArgumentCaptor<Map<String, Object>> updates = ArgumentCaptor.forClass(Map.class);
+        verify(httpRequestService).post(eq("https://gim-hub.test/update"), eq("group-token"), updates.capture());
+        assertEquals(false, updates.getValue().get("chat_relay_enabled"));
     }
 
     private static HttpRequestService.HttpResponse response(boolean successful, int code) {

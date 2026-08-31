@@ -10,6 +10,8 @@ import static org.mockito.Mockito.when;
 import com.google.gson.Gson;
 import java.lang.reflect.Field;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import okhttp3.OkHttpClient;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
@@ -90,6 +92,28 @@ public class HttpRequestServiceTest {
         assertEquals(
                 Map.of("name", "Player", "world", 420.0),
                 new Gson().fromJson(request.getBody().readUtf8(), Map.class));
+    }
+
+    @Test
+    public void asyncPostSendsJsonAndDeliversResponseToCallback() throws Exception {
+        server.enqueue(new MockResponse().setResponseCode(201).setBody("created"));
+
+        CompletableFuture<HttpRequestService.HttpResponse> future = new CompletableFuture<>();
+        httpRequestService.asyncPost(
+                server.url("/relay-chat").toString(),
+                "group-token",
+                Map.of("name", "Player", "message", "hello"),
+                future::complete);
+
+        RecordedRequest request = server.takeRequest(5, TimeUnit.SECONDS);
+        HttpRequestService.HttpResponse response = future.get(5, TimeUnit.SECONDS);
+
+        assertTrue(response.isSuccessful());
+        assertEquals(201, response.getCode());
+        assertEquals("created", response.getBody());
+        assertEquals("POST", request.getMethod());
+        assertEquals("group-token", request.getHeader("Authorization"));
+        assertEquals("application/json; charset=utf-8", request.getHeader("Content-Type"));
     }
 
     @Test

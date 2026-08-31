@@ -41,6 +41,16 @@ public interface GimHubConfig extends Config {
     }
 
     @ConfigItem(
+            keyName = "chatRelayEnabled",
+            name = "Chat relay enabled",
+            description =
+                    "When enabled, your own Group Ironman group chat messages will be sent to the group tracking server. This only affects your own messages, not those of other group members.",
+            section = GROUP_SECTION)
+    default boolean chatRelayEnabled() {
+        return true;
+    }
+
+    @ConfigItem(
             keyName = "baseUrlOverride",
             name = "Server base URL override (leave blank to use public server)",
             description =

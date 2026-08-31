@@ -29,6 +29,15 @@ public class ApiUrlBuilder {
         return String.format("%s/api/group/%s/am-i-in-group?member_name=%s", baseUrl, groupName, playerName);
     }
 
+    public String getRelayChatUrl() {
+        String baseUrl = httpRequestService.getBaseUrl();
+        String groupName = getGroupName();
+
+        if (baseUrl == null || groupName == null) return null;
+
+        return String.format("%s/api/group/%s/relay-chat", baseUrl, groupName);
+    }
+
     private String getGroupName() {
         String groupName = config.groupName().trim();
 
