@@ -1,5 +1,6 @@
 package gimhub;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
@@ -14,11 +15,16 @@ import static org.mockito.Mockito.when;
 
 import java.lang.reflect.Field;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Map;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.Player;
 import net.runelite.api.WorldType;
+import net.runelite.client.game.ItemManager;
+import net.runelite.client.game.ItemStack;
+import net.runelite.client.plugins.loottracker.LootReceived;
+import net.runelite.http.api.loottracker.LootRecordType;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
@@ -114,30 +120,85 @@ public class DataManagerTest {
     }
 
     @Test
-    public void retriesFailedFieldsTogetherWithLaterChanges() {
-        when(httpRequestService.post(eq("https://gim-hub.test/update"), eq("group-token"), anyMap()))
-                .thenReturn(response(false, 500), response(true, 200));
+    public void retainsEveryCollectionUpdateStagedBeforeUploadInOrder() {
         DataManager.PlayerState state = dataManager.getMaybeResetState(client);
-        state.activityRepository.updateResources(client);
+        state.collectionLogManager.storeCollectionLogItem(6739, 2);
+        dataManager.stageForSubmitToAPI();
+        drop(state);
+        dataManager.stageForSubmitToAPI();
+        dataManager.stageForSubmitToAPI();
+        dataManager.submitToApi("Player one");
         dataManager.stageForSubmitToAPI();
         dataManager.submitToApi("Player one");
 
-        state.activityRepository.updateSkills(client);
-        dataManager.stageForSubmitToAPI();
-        for (int attempt = 0; attempt < 11; attempt++) {
-            dataManager.submitToApi("Player one");
-        }
+        ArgumentCaptor<Map<String, Object>> payload = ArgumentCaptor.forClass(Map.class);
+        verify(httpRequestService, times(1))
+                .post(eq("https://gim-hub.test/update"), eq("group-token"), payload.capture());
+        List<Map<String, Object>> updates =
+                (List<Map<String, Object>>) payload.getValue().get("collection_log_updates");
+        assertEquals(2, updates.size());
+        assertEquals("scan", updates.get(0).get("type"));
+        assertEquals("drop", updates.get(1).get("type"));
+        assertTrue(!payload.getValue().containsKey("collection_log_v2"));
+    }
 
-        ArgumentCaptor<Map<String, Object>> updates = ArgumentCaptor.forClass(Map.class);
-        verify(httpRequestService, times(2))
-                .post(eq("https://gim-hub.test/update"), eq("group-token"), updates.capture());
-        Map<String, Object> retriedUpdates = updates.getAllValues().get(1);
-        assertTrue(retriedUpdates.containsKey("stats"));
-        assertTrue(retriedUpdates.containsKey("skills"));
+    @Test
+    public void doesNotCarryCollectionUpdatesAcrossPlayers() throws ReflectiveOperationException {
+        DataManager.PlayerState state = dataManager.getMaybeResetState(client);
+        drop(state);
+        dataManager.stageForSubmitToAPI();
+        when(player.getName()).thenReturn("Player two");
+        state = dataManager.getMaybeResetState(client);
+        state.activityRepository.updateResources(client);
+        dataManager.stageForSubmitToAPI();
+        ApiUrlBuilder builder = (ApiUrlBuilder) getField(dataManager, "apiUrlBuilder");
+        when(builder.getMembershipCheckUrl("Player two")).thenReturn("https://gim-hub.test/membership");
+        dataManager.submitToApi("Player two");
+
+        ArgumentCaptor<Map<String, Object>> payload = ArgumentCaptor.forClass(Map.class);
+        verify(httpRequestService).post(eq("https://gim-hub.test/update"), eq("group-token"), payload.capture());
+        assertTrue(!payload.getValue().containsKey("collection_log_updates"));
+    }
+
+    @Test
+    public void doesNotCarryCollectionUpdatesAcrossProfilesOfTheSamePlayer() {
+        DataManager.PlayerState state = dataManager.getMaybeResetState(client);
+        drop(state);
+        dataManager.stageForSubmitToAPI();
+
+        when(client.getWorldType()).thenReturn(EnumSet.of(WorldType.SEASONAL));
+        state = dataManager.getMaybeResetState(client);
+        state.collectionLogManager.storeCollectionLogItem(4151, 4);
+        dataManager.stageForSubmitToAPI();
+        for (int attempt = 0; attempt < 11; attempt++) dataManager.submitToApi("Player one");
+
+        ArgumentCaptor<Map<String, Object>> payload = ArgumentCaptor.forClass(Map.class);
+        verify(httpRequestService, times(1))
+                .post(eq("https://gim-hub.test/update"), eq("group-token"), payload.capture());
+        List<Map<String, Object>> updates =
+                (List<Map<String, Object>>) payload.getValue().get("collection_log_updates");
+        assertEquals(1, updates.size());
+        assertEquals(
+                List.of(Map.of("item_id", 4151, "quantity", 4)), updates.get(0).get("items"));
+    }
+
+    private void drop(DataManager.PlayerState state) {
+        ItemManager itemManager = mock(ItemManager.class);
+        when(itemManager.canonicalize(6739)).thenReturn(6739);
+        state.collectionLogManager.onLootReceived(
+                client,
+                new LootReceived("Dagannoth Rex", 0, LootRecordType.NPC, List.of(new ItemStack(6739, 1)), 1, null),
+                itemManager);
     }
 
     private static HttpRequestService.HttpResponse response(boolean successful, int code) {
         return new HttpRequestService.HttpResponse(successful, code, "");
+    }
+
+    private static Object getField(Object target, String name) throws ReflectiveOperationException {
+        Field field = target.getClass().getDeclaredField(name);
+        field.setAccessible(true);
+        return field.get(target);
     }
 
     private static void setField(Object target, String name, Object value) throws ReflectiveOperationException {

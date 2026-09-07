@@ -1,6 +1,11 @@
 package gimhub;
 
-import gimhub.items.ItemsUnordered;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -19,7 +24,11 @@ import net.runelite.api.events.VarbitChanged;
 import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.gameval.VarClientID;
 import net.runelite.api.gameval.VarbitID;
+import net.runelite.client.game.ItemManager;
+import net.runelite.client.game.ItemStack;
+import net.runelite.client.plugins.loottracker.LootReceived;
 import net.runelite.client.util.Text;
+import net.runelite.http.api.loottracker.LootRecordType;
 
 @Slf4j
 public class CollectionLogManager {
@@ -51,36 +60,94 @@ public class CollectionLogManager {
             "Decorative full helm",
             "Medallion fragment");
 
-    private ItemsUnordered collectionLogItems = null;
-    private ItemsUnordered flattenedCollectionLogItems = null;
-    private boolean collectionLogItemsDirty = false;
+    private static final int UNLOCK_MATCH_TICKS = 10;
+    private final List<PendingUpdate> pendingUpdates = new ArrayList<>();
+    private final Map<Integer, Integer> recentDropTicks = new HashMap<>();
+    private final Set<Integer> notifiedItems = new HashSet<>();
+    private int currentTick;
+
+    private static class PendingUpdate {
+        private final String type;
+        private final Map<Integer, Integer> items;
+        private int tick;
+
+        private PendingUpdate(String type, Map<Integer, Integer> items, int tick) {
+            this.type = type;
+            this.items = new LinkedHashMap<>(items);
+            this.tick = tick;
+        }
+    }
+
     private boolean automaticCollectionLogRetrieval = false;
     private boolean collectionLogNotificationStarted = false;
     private int collectionLogTransmitTick = -1;
 
     public synchronized void storeCollectionLogItem(int itemIdentifier, int quantity) {
-        if (collectionLogItems == null) {
-            collectionLogItems = new ItemsUnordered();
+        if (quantity < 0) return;
+        if (!pendingUpdates.isEmpty()) {
+            PendingUpdate last = pendingUpdates.get(pendingUpdates.size() - 1);
+            if (last.type.equals("scan")) {
+                last.items.put(itemIdentifier, quantity);
+                return;
+            }
         }
-
-        if (quantity <= 0) return;
-        collectionLogItems.getItemsQuantityByID().put(itemIdentifier, quantity);
-        collectionLogItemsDirty = true;
+        pendingUpdates.add(new PendingUpdate("scan", Map.of(itemIdentifier, quantity), currentTick));
     }
 
     public synchronized void clearCollectionLogItems() {
-        collectionLogItems = null;
-        flattenedCollectionLogItems = null;
-        collectionLogItemsDirty = false;
+        pendingUpdates.removeIf(update -> update.type.equals("scan"));
     }
 
     public synchronized void flatten(Map<String, APISerializable> flat) {
-        if (collectionLogItemsDirty && !automaticCollectionLogRetrieval) {
-            flattenedCollectionLogItems = new ItemsUnordered(collectionLogItems);
-            collectionLogItemsDirty = false;
-        }
+        if (automaticCollectionLogRetrieval) return;
 
-        flat.put("collection_log_v2", flattenedCollectionLogItems);
+        List<CollectionLogUpdates.Update> ready = new ArrayList<>();
+        Iterator<PendingUpdate> iterator = pendingUpdates.iterator();
+        while (iterator.hasNext()) {
+            PendingUpdate update = iterator.next();
+            if (update.type.equals("unlock") && currentTick <= update.tick + UNLOCK_MATCH_TICKS) break;
+            ready.add(new CollectionLogUpdates.Update(update.type, update.items));
+            iterator.remove();
+        }
+        if (!ready.isEmpty()) flat.put("collection_log_updates", new CollectionLogUpdates(ready));
+    }
+
+    public synchronized void onLootReceived(Client client, LootReceived event, ItemManager itemManager) {
+        if (event.getType() != LootRecordType.NPC
+                && event.getType() != LootRecordType.EVENT
+                && event.getType() != LootRecordType.PICKPOCKET) return;
+        if (event.getName().equals("Loot Chest")) return;
+        currentTick = client.getTickCount();
+
+        Map<Integer, Integer> items = new LinkedHashMap<>();
+        for (ItemStack item : event.getItems()) {
+            int identifier = itemManager.canonicalize(item.getId());
+            items.merge(identifier, item.getQuantity(), Integer::sum);
+            recentDropTicks.put(identifier, currentTick);
+        }
+        items.keySet().removeIf(this::reconcileUnlock);
+        if (!items.isEmpty()) pendingUpdates.add(new PendingUpdate("drop", items, currentTick));
+    }
+
+    /** Returns whether a scan after the matching unlock already includes this acquisition. */
+    protected boolean reconcileUnlock(int itemIdentifier) {
+        boolean matchedUnlock = false;
+        boolean alreadyScanned = false;
+        Iterator<PendingUpdate> iterator = pendingUpdates.iterator();
+        while (iterator.hasNext()) {
+            PendingUpdate update = iterator.next();
+            if (update.type.equals("unlock")
+                    && update.items.containsKey(itemIdentifier)
+                    && currentTick <= update.tick + UNLOCK_MATCH_TICKS) {
+                matchedUnlock = true;
+                iterator.remove();
+            } else if (matchedUnlock
+                    && update.type.equals("scan")
+                    && update.items.getOrDefault(itemIdentifier, 0) > 0) {
+                alreadyScanned = true;
+            }
+        }
+        return alreadyScanned;
     }
 
     public void onGameStateChanged(GameStateChanged event) {
@@ -91,13 +158,19 @@ public class CollectionLogManager {
         }
     }
 
-    protected void resetTransientState() {
+    protected synchronized void resetTransientState() {
         automaticCollectionLogRetrieval = false;
         collectionLogNotificationStarted = false;
         collectionLogTransmitTick = -1;
+        pendingUpdates.stream()
+                .filter(update -> update.type.equals("unlock"))
+                .forEach(update -> update.tick = -UNLOCK_MATCH_TICKS - 1);
+        recentDropTicks.clear();
     }
 
-    public void onGameTick(Client client) {
+    public synchronized void onGameTick(Client client) {
+        currentTick = client.getTickCount();
+        recentDropTicks.values().removeIf(tick -> currentTick > tick + UNLOCK_MATCH_TICKS);
         if (collectionLogTransmitTick == -1
                 || collectionLogTransmitTick + COLLECTION_LOG_TRANSMIT_BUFFER_TICKS >= client.getTickCount()) {
             return;
@@ -109,6 +182,7 @@ public class CollectionLogManager {
 
     public void onScriptPreFired(
             Client client, ScriptPreFired event, CollectionLogItemResolver collectionLogItemResolver) {
+        currentTick = client.getTickCount();
         if (event.getScriptId() == COLLECTION_DELAYED_TRANSMIT_SCRIPT) {
             if (isAdventureLogOpen(client)) {
                 return;
@@ -174,18 +248,20 @@ public class CollectionLogManager {
     }
 
     public void onChatMessage(Client client, ChatMessage event, CollectionLogItemResolver collectionLogItemResolver) {
+        currentTick = client.getTickCount();
         if (event.getType() != ChatMessageType.GAMEMESSAGE
                 || client.getVarbitValue(VarbitID.OPTION_COLLECTION_NEW_ITEM) != 1) {
             return;
         }
 
-        Matcher matcher = NEW_ITEM_MESSAGE_PATTERN.matcher(event.getMessage());
+        Matcher matcher = NEW_ITEM_MESSAGE_PATTERN.matcher(sanitize(event.getMessage()));
         if (matcher.find()) {
             handleNewCollectionLogItem(matcher.group("itemName"), collectionLogItemResolver);
         }
     }
 
-    protected void handleNewCollectionLogItem(String itemName, CollectionLogItemResolver collectionLogItemResolver) {
+    protected synchronized void handleNewCollectionLogItem(
+            String itemName, CollectionLogItemResolver collectionLogItemResolver) {
         if (IGNORED_NOTIFICATION_ITEMS.contains(itemName)) {
             log.debug("Ignoring collection log item with non-unique name: {}", itemName);
             return;
@@ -197,7 +273,10 @@ public class CollectionLogManager {
             return;
         }
 
-        storeCollectionLogItem(itemIdentifier, 1);
+        if (!notifiedItems.add(itemIdentifier)) return;
+        if (recentDropTicks.containsKey(itemIdentifier)
+                && currentTick <= recentDropTicks.get(itemIdentifier) + UNLOCK_MATCH_TICKS) return;
+        pendingUpdates.add(new PendingUpdate("unlock", Map.of(itemIdentifier, 1), currentTick));
     }
 
     protected boolean isAdventureLogOpen(Client client) {

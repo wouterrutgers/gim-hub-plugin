@@ -34,10 +34,6 @@ public class DataManager {
 
     private final AtomicReference<FlatState> flatRef = new AtomicReference<>();
 
-    // Managed by the request thread
-
-    private FlatState flatFromFailedRequest = null;
-
     @Inject
     private HttpRequestService httpRequestService;
 
@@ -103,7 +99,13 @@ public class DataManager {
             }
 
             Map<String, APISerializable> mergedFields = new HashMap<>(defaults.fields);
-            mergedFields.putAll(priority.fields);
+            priority.fields.forEach((key, value) -> {
+                if (key.equals("collection_log_updates")) {
+                    mergedFields.merge(key, value, CollectionLogUpdates::combine);
+                } else {
+                    mergedFields.put(key, value);
+                }
+            });
 
             return new FlatState(priority.ownedPlayer, priority.ownedProfileType, mergedFields);
         }
@@ -249,12 +251,10 @@ public class DataManager {
             log.debug("Skip POST: Player changed. Backing off.");
             return;
         }
-        flatRef.compareAndSet(flat, null);
-
-        if (flatFromFailedRequest != null && playerName.equals(flatFromFailedRequest.ownedPlayer)) {
-            flat = FlatState.combineWithPriority(flat, flatFromFailedRequest);
+        while (!flatRef.compareAndSet(flat, null)) {
+            flat = flatRef.get();
+            if (flat == null || !flat.ownedPlayer.equals(playerName)) return;
         }
-        flatFromFailedRequest = null;
 
         Map<String, Object> updates = flat.serialize();
 
@@ -265,12 +265,8 @@ public class DataManager {
 
         HttpRequestService.HttpResponse response = httpRequestService.post(url, groupToken, updates);
 
-        if (!response.isSuccessful()) {
-            skipNextNAttempts = 10;
-            if (response.getCode() == 422) {
-                isMemberInGroup = false;
-            }
-            flatFromFailedRequest = flat;
+        if (response.getCode() == 422) {
+            isMemberInGroup = false;
         }
     }
 

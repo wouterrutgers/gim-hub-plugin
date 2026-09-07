@@ -2,12 +2,14 @@ package gimhub;
 
 import com.google.gson.Gson;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.client.RuneLiteProperties;
 import okhttp3.*;
+import okio.BufferedSink;
 
 @Slf4j
 @Singleton
@@ -25,6 +27,11 @@ public class HttpRequestService {
     @Inject
     private Gson gson;
 
+    @Inject
+    protected void initialize() {
+        okHttpClient = okHttpClient.newBuilder().retryOnConnectionFailure(false).build();
+    }
+
     public HttpResponse get(String url, String authToken) {
         Request request = buildRequest(url, authToken).get().build();
 
@@ -33,7 +40,27 @@ public class HttpRequestService {
 
     public HttpResponse post(String url, String authToken, Object requestBody) {
         String requestJson = gson.toJson(requestBody);
-        RequestBody body = RequestBody.create(JSON, requestJson);
+        RequestBody body = new RequestBody() {
+            @Override
+            public MediaType contentType() {
+                return JSON;
+            }
+
+            @Override
+            public long contentLength() {
+                return requestJson.getBytes(StandardCharsets.UTF_8).length;
+            }
+
+            @Override
+            public boolean isOneShot() {
+                return true;
+            }
+
+            @Override
+            public void writeTo(BufferedSink sink) throws IOException {
+                sink.writeUtf8(requestJson);
+            }
+        };
 
         Request request = buildRequest(url, authToken).post(body).build();
 

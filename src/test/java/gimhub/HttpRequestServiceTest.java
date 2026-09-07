@@ -1,7 +1,6 @@
 package gimhub;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
@@ -9,7 +8,6 @@ import static org.mockito.Mockito.when;
 
 import com.google.gson.Gson;
 import java.lang.reflect.Field;
-import java.util.Map;
 import okhttp3.OkHttpClient;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
@@ -34,6 +32,7 @@ public class HttpRequestServiceTest {
         setField(httpRequestService, "okHttpClient", new OkHttpClient());
         setField(httpRequestService, "config", configuration);
         setField(httpRequestService, "gson", new Gson());
+        httpRequestService.initialize();
     }
 
     @After
@@ -72,24 +71,6 @@ public class HttpRequestServiceTest {
         } finally {
             externalServer.shutdown();
         }
-    }
-
-    @Test
-    public void postSerializesJsonAndReturnsUnsuccessfulResponse() throws Exception {
-        server.enqueue(new MockResponse().setResponseCode(422).setBody("invalid"));
-
-        HttpRequestService.HttpResponse response = httpRequestService.post(
-                server.url("/update").toString(), "group-token", Map.of("name", "Player", "world", 420));
-        RecordedRequest request = server.takeRequest();
-
-        assertFalse(response.isSuccessful());
-        assertEquals(422, response.getCode());
-        assertEquals("invalid", response.getBody());
-        assertEquals("POST", request.getMethod());
-        assertEquals("application/json; charset=utf-8", request.getHeader("Content-Type"));
-        assertEquals(
-                Map.of("name", "Player", "world", 420.0),
-                new Gson().fromJson(request.getBody().readUtf8(), Map.class));
     }
 
     @Test

@@ -11,11 +11,15 @@ import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.plugins.Plugin;
+import net.runelite.client.plugins.PluginDependency;
 import net.runelite.client.plugins.PluginDescriptor;
+import net.runelite.client.plugins.loottracker.LootReceived;
+import net.runelite.client.plugins.loottracker.LootTrackerPlugin;
 import net.runelite.client.task.Schedule;
 
 @Slf4j
 @PluginDescriptor(name = "GIM hub")
+@PluginDependency(LootTrackerPlugin.class)
 public class GimHubPlugin extends Plugin {
     @Inject
     private Client client;
@@ -87,6 +91,14 @@ public class GimHubPlugin extends Plugin {
         // It seems onGameTick runs after all other subscribed callbacks, so this is a good spot to stage all the state
         // changes.
         dataManager.stageForSubmitToAPI();
+    }
+
+    @Subscribe
+    public void onLootReceived(LootReceived event) {
+        PlayerState state = dataManager.getMaybeResetState(client);
+        if (state == null) return;
+
+        state.collectionLogManager.onLootReceived(client, event, itemManager);
     }
 
     @Subscribe
