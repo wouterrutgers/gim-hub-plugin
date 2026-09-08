@@ -70,6 +70,7 @@ public class CollectionLogManager {
         private final String type;
         private final Map<Integer, Integer> items;
         private int tick;
+        private boolean awaitingChambersLoot;
 
         private PendingUpdate(String type, Map<Integer, Integer> items, int tick) {
             this.type = type;
@@ -105,7 +106,8 @@ public class CollectionLogManager {
         Iterator<PendingUpdate> iterator = pendingUpdates.iterator();
         while (iterator.hasNext()) {
             PendingUpdate update = iterator.next();
-            if (update.type.equals("unlock") && currentTick <= update.tick + UNLOCK_MATCH_TICKS) break;
+            if (update.awaitingChambersLoot
+                    || (update.type.equals("unlock") && currentTick <= update.tick + UNLOCK_MATCH_TICKS)) break;
             ready.add(new CollectionLogUpdates.Update(update.type, update.items));
             iterator.remove();
         }
@@ -125,12 +127,22 @@ public class CollectionLogManager {
             items.merge(identifier, item.getQuantity(), Integer::sum);
             recentDropTicks.put(identifier, currentTick);
         }
-        items.keySet().removeIf(this::reconcileUnlock);
+        boolean chambersLoot =
+                event.getType() == LootRecordType.EVENT && event.getName().equals("Chambers of Xeric");
+        items.keySet().removeIf(itemIdentifier -> reconcileUnlock(itemIdentifier, chambersLoot));
+        if (chambersLoot) {
+            for (PendingUpdate update : pendingUpdates) {
+                if (update.awaitingChambersLoot) {
+                    update.awaitingChambersLoot = false;
+                    update.tick = -UNLOCK_MATCH_TICKS - 1;
+                }
+            }
+        }
         if (!items.isEmpty()) pendingUpdates.add(new PendingUpdate("drop", items, currentTick));
     }
 
     /** Returns whether a scan after the matching unlock already includes this acquisition. */
-    protected boolean reconcileUnlock(int itemIdentifier) {
+    protected boolean reconcileUnlock(int itemIdentifier, boolean chambersLoot) {
         boolean matchedUnlock = false;
         boolean alreadyScanned = false;
         Iterator<PendingUpdate> iterator = pendingUpdates.iterator();
@@ -138,7 +150,7 @@ public class CollectionLogManager {
             PendingUpdate update = iterator.next();
             if (update.type.equals("unlock")
                     && update.items.containsKey(itemIdentifier)
-                    && currentTick <= update.tick + UNLOCK_MATCH_TICKS) {
+                    && (update.awaitingChambersLoot ? chambersLoot : currentTick <= update.tick + UNLOCK_MATCH_TICKS)) {
                 matchedUnlock = true;
                 iterator.remove();
             } else if (matchedUnlock
@@ -217,7 +229,9 @@ public class CollectionLogManager {
 
         String message = sanitize(client.getVarcStrValue(VarClientID.NOTIFICATION_MAIN));
         handleNewCollectionLogItem(
-                message.substring(COLLECTION_LOG_NOTIFICATION_PREFIX_LENGTH).trim(), collectionLogItemResolver);
+                client,
+                message.substring(COLLECTION_LOG_NOTIFICATION_PREFIX_LENGTH).trim(),
+                collectionLogItemResolver);
     }
 
     public void onScriptPostFired(Client client, ScriptPostFired event) {
@@ -256,12 +270,12 @@ public class CollectionLogManager {
 
         Matcher matcher = NEW_ITEM_MESSAGE_PATTERN.matcher(sanitize(event.getMessage()));
         if (matcher.find()) {
-            handleNewCollectionLogItem(matcher.group("itemName"), collectionLogItemResolver);
+            handleNewCollectionLogItem(client, matcher.group("itemName"), collectionLogItemResolver);
         }
     }
 
     protected synchronized void handleNewCollectionLogItem(
-            String itemName, CollectionLogItemResolver collectionLogItemResolver) {
+            Client client, String itemName, CollectionLogItemResolver collectionLogItemResolver) {
         if (IGNORED_NOTIFICATION_ITEMS.contains(itemName)) {
             log.debug("Ignoring collection log item with non-unique name: {}", itemName);
             return;
@@ -276,7 +290,9 @@ public class CollectionLogManager {
         if (!notifiedItems.add(itemIdentifier)) return;
         if (recentDropTicks.containsKey(itemIdentifier)
                 && currentTick <= recentDropTicks.get(itemIdentifier) + UNLOCK_MATCH_TICKS) return;
-        pendingUpdates.add(new PendingUpdate("unlock", Map.of(itemIdentifier, 1), currentTick));
+        PendingUpdate update = new PendingUpdate("unlock", Map.of(itemIdentifier, 1), currentTick);
+        update.awaitingChambersLoot = client.getVarbitValue(VarbitID.RAIDS_CLIENT_INDUNGEON) == 1;
+        pendingUpdates.add(update);
     }
 
     protected boolean isAdventureLogOpen(Client client) {

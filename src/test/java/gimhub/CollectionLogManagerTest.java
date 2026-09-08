@@ -135,8 +135,8 @@ public class CollectionLogManagerTest {
     public void ignoresAmbiguousAndUnknownNotificationItems() {
         when(itemResolver.findItemIdentifier("Unknown item")).thenReturn(null);
 
-        collectionLogManager.handleNewCollectionLogItem("Chompy bird hat", itemResolver);
-        collectionLogManager.handleNewCollectionLogItem("Unknown item", itemResolver);
+        collectionLogManager.handleNewCollectionLogItem(client, "Chompy bird hat", itemResolver);
+        collectionLogManager.handleNewCollectionLogItem(client, "Unknown item", itemResolver);
 
         verify(itemResolver, never()).findItemIdentifier("Chompy bird hat");
         verify(itemResolver).findItemIdentifier("Unknown item");
@@ -188,7 +188,7 @@ public class CollectionLogManagerTest {
     @Test
     public void unlockBeforeLootDoesNotAddAnExtraAcquisition() {
         when(itemResolver.findItemIdentifier("Dragon axe")).thenReturn(6739);
-        collectionLogManager.handleNewCollectionLogItem("Dragon axe", itemResolver);
+        collectionLogManager.handleNewCollectionLogItem(client, "Dragon axe", itemResolver);
         assertNull(flattenedValue());
         when(client.getTickCount()).thenReturn(2);
         loot(6739, 1);
@@ -202,15 +202,15 @@ public class CollectionLogManagerTest {
         loot(6739, 1);
         assertEquals(1, flattenedUpdates().size());
         when(itemResolver.findItemIdentifier("Dragon axe")).thenReturn(6739);
-        collectionLogManager.handleNewCollectionLogItem("Dragon axe", itemResolver);
+        collectionLogManager.handleNewCollectionLogItem(client, "Dragon axe", itemResolver);
         assertNull(flattenedValue());
     }
 
     @Test
     public void chatAndPopupOnlyPublishOneUnlock() {
         when(itemResolver.findItemIdentifier("Dragon axe")).thenReturn(6739);
-        collectionLogManager.handleNewCollectionLogItem("Dragon axe", itemResolver);
-        collectionLogManager.handleNewCollectionLogItem("Dragon axe", itemResolver);
+        collectionLogManager.handleNewCollectionLogItem(client, "Dragon axe", itemResolver);
+        collectionLogManager.handleNewCollectionLogItem(client, "Dragon axe", itemResolver);
         when(client.getTickCount()).thenReturn(11);
         collectionLogManager.onGameTick(client);
         assertEquals(1, flattenedUpdates().size());
@@ -280,7 +280,7 @@ public class CollectionLogManagerTest {
     @Test
     public void anUnlockWithoutLootDoesNotSuppressALaterRepeatDrop() {
         when(itemResolver.findItemIdentifier("Dragon axe")).thenReturn(6739);
-        collectionLogManager.handleNewCollectionLogItem("Dragon axe", itemResolver);
+        collectionLogManager.handleNewCollectionLogItem(client, "Dragon axe", itemResolver);
         when(client.getTickCount()).thenReturn(11);
         collectionLogManager.onGameTick(client);
         assertEquals("unlock", flattenedUpdates().get(0).get("type"));
@@ -294,7 +294,7 @@ public class CollectionLogManagerTest {
         when(client.getTickCount()).thenReturn(100);
         collectionLogManager.onGameTick(client);
         when(itemResolver.findItemIdentifier("Dragon axe")).thenReturn(6739);
-        collectionLogManager.handleNewCollectionLogItem("Dragon axe", itemResolver);
+        collectionLogManager.handleNewCollectionLogItem(client, "Dragon axe", itemResolver);
         GameStateChanged event = new GameStateChanged();
         event.setGameState(GameState.LOGIN_SCREEN);
         collectionLogManager.onGameStateChanged(event);
@@ -306,7 +306,7 @@ public class CollectionLogManagerTest {
     @Test
     public void aScanAfterAnUnlockAlreadyIncludesTheLateLootNotification() {
         when(itemResolver.findItemIdentifier("Dragon axe")).thenReturn(6739);
-        collectionLogManager.handleNewCollectionLogItem("Dragon axe", itemResolver);
+        collectionLogManager.handleNewCollectionLogItem(client, "Dragon axe", itemResolver);
         collectionLogManager.storeCollectionLogItem(6739, 1);
         loot(6739, 1);
         List<Map<String, Object>> updates = flattenedUpdates();
@@ -316,6 +316,112 @@ public class CollectionLogManagerTest {
                 List.of(Map.of("item_id", 6739, "quantity", 1)), updates.get(0).get("items"));
         loot(6739, 1);
         assertEquals("drop", flattenedUpdates().get(0).get("type"));
+    }
+
+    @Test
+    public void chambersChatUnlockWaitsForDelayedChestLoot() {
+        when(client.getVarbitValue(VarbitID.RAIDS_CLIENT_INDUNGEON)).thenReturn(1);
+        chatNotification("Torn prayer scroll", 21047);
+
+        when(client.getTickCount()).thenReturn(11);
+        collectionLogManager.onGameTick(client);
+        assertNull(flattenedValue());
+        when(client.getTickCount()).thenReturn(100);
+        collectionLogManager.onGameTick(client);
+        assertNull(flattenedValue());
+
+        chambersLoot(21047, 1);
+        assertEquals(
+                List.of(Map.of("type", "drop", "items", List.of(Map.of("item_id", 21047, "quantity", 1)))),
+                flattenedUpdates());
+        assertNull(flattenedValue());
+
+        chambersLoot(21047, 1);
+        assertEquals("drop", flattenedUpdates().get(0).get("type"));
+    }
+
+    @Test
+    public void chambersPopupUnlockWaitsAndDeduplicatesChatNotification() {
+        when(client.getVarbitValue(VarbitID.RAIDS_CLIENT_INDUNGEON)).thenReturn(1);
+        when(client.getVarcStrValue(VarClientID.NOTIFICATION_TITLE)).thenReturn("Collection log");
+        when(client.getVarcStrValue(VarClientID.NOTIFICATION_MAIN)).thenReturn("New item:<br>Torn prayer scroll");
+        when(itemResolver.findItemIdentifier("Torn prayer scroll")).thenReturn(21047);
+        collectionLogManager.onScriptPreFired(client, new ScriptPreFired(ScriptID.NOTIFICATION_START), itemResolver);
+        collectionLogManager.onScriptPreFired(client, new ScriptPreFired(ScriptID.NOTIFICATION_DELAY), itemResolver);
+
+        when(client.getTickCount()).thenReturn(11);
+        collectionLogManager.onGameTick(client);
+        assertNull(flattenedValue());
+        chatNotification("Torn prayer scroll", 21047);
+        assertNull(flattenedValue());
+
+        chambersLoot(21047, 1);
+        assertEquals(
+                List.of(Map.of("type", "drop", "items", List.of(Map.of("item_id", 21047, "quantity", 1)))),
+                flattenedUpdates());
+        assertNull(flattenedValue());
+    }
+
+    @Test
+    public void chambersChestReleasesUnmatchedPetUnlockImmediately() {
+        when(client.getVarbitValue(VarbitID.RAIDS_CLIENT_INDUNGEON)).thenReturn(1);
+        chatNotification("Olmlet", 20851);
+        chatNotification("Torn prayer scroll", 21047);
+        assertNull(flattenedValue());
+
+        when(client.getTickCount()).thenReturn(2);
+        chambersLoot(21047, 1);
+        assertEquals(
+                List.of(
+                        Map.of("type", "unlock", "items", List.of(Map.of("item_id", 20851, "quantity", 1))),
+                        Map.of("type", "drop", "items", List.of(Map.of("item_id", 21047, "quantity", 1)))),
+                flattenedUpdates());
+        assertNull(flattenedValue());
+    }
+
+    @Test
+    public void chambersScanStaysPendingAndIncludesDelayedChestLoot() {
+        when(client.getVarbitValue(VarbitID.RAIDS_CLIENT_INDUNGEON)).thenReturn(1);
+        chatNotification("Torn prayer scroll", 21047);
+        collectionLogManager.onScriptPostFired(client, new ScriptPostFired(7797));
+        ScriptEvent scriptEvent = mock(ScriptEvent.class);
+        when(scriptEvent.getArguments()).thenReturn(new Object[] {null, 21047, 1});
+        ScriptPreFired event = new ScriptPreFired(4100);
+        event.setScriptEvent(scriptEvent);
+        collectionLogManager.onScriptPreFired(client, event, itemResolver);
+
+        when(client.getTickCount()).thenReturn(11);
+        collectionLogManager.onGameTick(client);
+        assertNull(flattenedValue());
+
+        when(client.getTickCount()).thenReturn(20);
+        chambersLoot(21047, 1);
+        assertEquals(
+                List.of(Map.of("type", "scan", "items", List.of(Map.of("item_id", 21047, "quantity", 1)))),
+                flattenedUpdates());
+        assertNull(flattenedValue());
+    }
+
+    private void chatNotification(String itemName, int itemIdentifier) {
+        when(client.getVarbitValue(VarbitID.OPTION_COLLECTION_NEW_ITEM)).thenReturn(1);
+        when(itemResolver.findItemIdentifier(itemName)).thenReturn(itemIdentifier);
+        ChatMessage event = new ChatMessage();
+        event.setType(ChatMessageType.GAMEMESSAGE);
+        event.setMessage("New item added to your collection log: " + itemName);
+        collectionLogManager.onChatMessage(client, event, itemResolver);
+    }
+
+    private void chambersLoot(int itemIdentifier, int quantity) {
+        collectionLogManager.onLootReceived(
+                client,
+                new LootReceived(
+                        "Chambers of Xeric",
+                        0,
+                        LootRecordType.EVENT,
+                        List.of(new ItemStack(itemIdentifier, quantity)),
+                        1,
+                        null),
+                itemManager);
     }
 
     private void loot(int identifier, int quantity) {
