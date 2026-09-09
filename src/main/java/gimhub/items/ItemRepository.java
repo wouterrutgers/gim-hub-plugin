@@ -36,7 +36,7 @@ public class ItemRepository {
             new CoalBagItems(),
             fishBarrel,
             new PlankSackItems(),
-            new HerbSackItems(),
+            new HerbSackItems(bank),
             new GemBagItems(),
             new LootingBagItems(),
             new SeedBoxItems(),

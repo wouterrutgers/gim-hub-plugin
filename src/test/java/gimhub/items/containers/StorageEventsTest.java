@@ -7,6 +7,8 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.*;
 
 import gimhub.APISerializable;
+import gimhub.items.ItemRepository;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -15,6 +17,7 @@ import net.runelite.api.events.*;
 import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.gameval.InventoryID;
 import net.runelite.api.gameval.ItemID;
+import net.runelite.api.gameval.VarbitID;
 import net.runelite.api.widgets.Widget;
 import net.runelite.client.game.ItemManager;
 import org.junit.Before;
@@ -35,8 +38,115 @@ public class StorageEventsTest {
     }
 
     @Test
+    public void enablingEmptyOnDeathDoesNotMakeUnknownHerbsEmpty() {
+        HerbSackItems herbs = new HerbSackItems(new BankItems());
+        when(client.getVarbitValue(VarbitID.EMPTYONDEATH_HERBSACK)).thenReturn(1);
+        herbs.onVarbitChanged(client, -1, VarbitID.EMPTYONDEATH_HERBSACK, itemManager);
+        assertNull(herbs.get());
+    }
+
+    @Test
+    public void togglingEmptyOnDeathPreservesKnownHerbs() {
+        HerbSackItems herbs = new HerbSackItems(new BankItems());
+        chat(herbs, "You look in your herb sack and see:");
+        chat(herbs, "12 x Grimy ranarr weed");
+        herbs.onGameTick(client, itemManager);
+        for (int preference : new int[] {1, 0}) {
+            when(client.getVarbitValue(VarbitID.EMPTYONDEATH_HERBSACK)).thenReturn(preference);
+            herbs.onVarbitChanged(client, -1, VarbitID.EMPTYONDEATH_HERBSACK, itemManager);
+            assertEquals(Map.of(ItemID.UNIDENTIFIED_RANARR, 12), pairs(herbs.get()));
+        }
+        chat(herbs, "The herb sack is empty.");
+        assertEquals(Map.of(), pairs(herbs.get()));
+    }
+
+    @Test
+    public void emptyingIndividualHerbSacksAtDepositBoxesCreditsTheBankOnce() {
+        when(client.getEnum(EnumID.RUNEPOUCH_RUNE)).thenReturn(mock(EnumComposition.class));
+        when(client.getVarbitValue(VarbitID.FARMING_TOOLS_WATERINGCAN)).thenReturn(-1);
+        for (int variant : new int[] {
+            ItemID.SLAYER_HERB_SACK,
+            ItemID.SLAYER_HERB_SACK_OPEN,
+            ItemID.SLAYER_HERB_SACK_SILK,
+            ItemID.SLAYER_HERB_SACK_SILK_OPEN
+        }) {
+            for (boolean bankKnown : new boolean[] {false, true}) {
+                ItemRepository repository = new ItemRepository();
+                if (bankKnown) {
+                    repository.onItemContainerChanged(
+                            container(InventoryID.BANK, new Item(ItemID.UNIDENTIFIED_RANARR, 5)), itemManager);
+                }
+                doReturn(container(InventoryID.INV, new Item(variant, 1)))
+                        .when(client)
+                        .getItemContainer(InventoryID.INV);
+                repository.onChatMessage(
+                        client,
+                        new ChatMessage(
+                                null, ChatMessageType.GAMEMESSAGE, "", "You look in your herb sack and see:", "", 0),
+                        itemManager);
+                repository.onChatMessage(
+                        client,
+                        new ChatMessage(null, ChatMessageType.GAMEMESSAGE, "", "12 x Grimy ranarr weed", "", 0),
+                        itemManager);
+                repository.onGameTick(client, itemManager);
+                Map<String, APISerializable> before = new HashMap<>();
+                repository.flatten(before);
+
+                MenuEntry entry = mock(MenuEntry.class);
+                when(entry.getItemId()).thenReturn(variant);
+                when(entry.getOption()).thenReturn("Empty");
+                when(entry.getParam1()).thenReturn(InterfaceID.BankDepositbox.INVENTORY);
+                repository.onMenuOptionClicked(client, new MenuOptionClicked(entry), itemManager);
+                for (int tick = 1; tick <= 4; tick++) {
+                    when(client.getTickCount()).thenReturn(tick);
+                    repository.onGameTick(client, itemManager);
+                }
+                Map<String, APISerializable> after = new HashMap<>();
+                repository.flatten(after);
+                assertEquals(Map.of(), pairs(after.get("herb_sack")));
+                assertEquals(
+                        Map.of(ItemID.UNIDENTIFIED_RANARR, bankKnown ? 17 : 12),
+                        pairs(after.get(bankKnown ? "bank" : "bank_partial")));
+                assertEquals(Map.of(ItemID.UNIDENTIFIED_RANARR, 12), pairs(before.get("herb_sack")));
+                if (bankKnown) {
+                    assertEquals(Map.of(ItemID.UNIDENTIFIED_RANARR, 5), pairs(before.get("bank")));
+                }
+                repository.onMenuOptionClicked(client, new MenuOptionClicked(entry), itemManager);
+                repository.flatten(after);
+                assertEquals(
+                        Map.of(ItemID.UNIDENTIFIED_RANARR, bankKnown ? 17 : 12),
+                        pairs(after.get(bankKnown ? "bank" : "bank_partial")));
+            }
+        }
+    }
+
+    @Test
+    public void emptyingHerbsIntoInventoryOnlyRemovesTheTransferredQuantity() {
+        HerbSackItems herbs = new HerbSackItems(new BankItems());
+        chat(herbs, "You look in your herb sack and see:");
+        chat(herbs, "12 x Grimy ranarr weed");
+        herbs.onGameTick(client, itemManager);
+        doReturn(container(InventoryID.INV, new Item(ItemID.SLAYER_HERB_SACK, 1)))
+                .when(client)
+                .getItemContainer(InventoryID.INV);
+        MenuEntry entry = mock(MenuEntry.class);
+        when(entry.getItemId()).thenReturn(ItemID.SLAYER_HERB_SACK);
+        when(entry.getOption()).thenReturn("Empty");
+        when(entry.getParam1()).thenReturn(InterfaceID.Inventory.ITEMS);
+        herbs.onMenuOptionClicked(client, new MenuOptionClicked(entry), itemManager);
+        herbs.onGameTick(client, itemManager);
+        assertEquals(Map.of(ItemID.UNIDENTIFIED_RANARR, 12), pairs(herbs.get()));
+        doReturn(container(
+                        InventoryID.INV, new Item(ItemID.SLAYER_HERB_SACK, 1), new Item(ItemID.UNIDENTIFIED_RANARR, 5)))
+                .when(client)
+                .getItemContainer(InventoryID.INV);
+        herbs.onGameTick(client, itemManager);
+        assertEquals(Map.of(ItemID.UNIDENTIFIED_RANARR, 7), pairs(herbs.get()));
+    }
+
+    @Test
     public void incompleteHerbChecksPreserveThePreviousSnapshot() {
-        HerbSackItems herbs = new HerbSackItems();
+        HerbSackItems herbs = new HerbSackItems(new BankItems());
         chat(herbs, "You look in your herb sack and see:");
         chat(herbs, "2 x Grimy huasca");
         herbs.onGameTick(client, itemManager);
@@ -59,7 +169,7 @@ public class StorageEventsTest {
             ItemID.SLAYER_HERB_SACK_SILK,
             ItemID.SLAYER_HERB_SACK_SILK_OPEN
         }) {
-            HerbSackItems herbs = new HerbSackItems();
+            HerbSackItems herbs = new HerbSackItems(new BankItems());
             chat(herbs, "The herb sack is empty.");
             doReturn(container(InventoryID.INV, new Item(variant, 1), new Item(ItemID.UNIDENTIFIED_RANARR, 4)))
                     .when(client)

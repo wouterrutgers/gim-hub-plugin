@@ -51,7 +51,7 @@ public class BankItems implements TrackedItemContainer {
 
     public void addItems(Map<Integer, Integer> items, ItemManager itemManager) {
         final Map<Integer, Integer> additionalItemsSafe = ItemsUtilities.convertToSafeMap(items, itemManager);
-        final Map<Integer, Integer> resultItems = this.items.getItemsQuantityByID();
+        final Map<Integer, Integer> resultItems = getBankItems();
 
         for (final Map.Entry<Integer, Integer> entry : additionalItemsSafe.entrySet()) {
             final int itemID = entry.getKey();

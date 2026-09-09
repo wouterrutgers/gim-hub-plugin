@@ -201,6 +201,35 @@ public class StashUnitsItemsTest {
     }
 
     @Test
+    public void wellOfVoyagePublishesAllUnitsWithItsReservedSlotEmpty() {
+        for (int staff : new int[] {ItemID.IBANSTAFF, ItemID.IBANSTAFF_UPGRADED}) {
+            open();
+            APISerializable known = tracker.get();
+            filled = Set.of(29043);
+            Item[] items = new Item[51];
+            items[47] = new Item(staff, 1);
+            items[48] = new Item(ItemID.MYSTIC_ROBE_TOP_DARK, 1);
+            doReturn(PortableStorageItemsTest.container(InventoryID.HH_INV, items))
+                    .when(client)
+                    .getItemContainer(InventoryID.HH_INV);
+            open();
+            assertSame(known, tracker.get());
+
+            items[49] = new Item(ItemID.MYSTIC_ROBE_BOTTOM_DARK, 1);
+            items[50] = new Item(-1, 0);
+            tracker.onGameTick(client, itemManager);
+            assertEquals(119, snapshot().getUnits().size());
+            assertEquals("filled", unit(29043).getState());
+            assertEquals(6, unit(29043).getItems().size());
+            assertTrue(unit(29043)
+                    .getItems()
+                    .containsAll(List.of(staff, ItemID.MYSTIC_ROBE_TOP_DARK, ItemID.MYSTIC_ROBE_BOTTOM_DARK)));
+            assertTrue(unit(29043).getAlternatives().isEmpty());
+            assertEquals("empty", unit(28958).getState());
+        }
+    }
+
+    @Test
     public void partiallyTransmittedExactContentsPreserveTheWholeKnownOverview() {
         open();
         APISerializable known = tracker.get();

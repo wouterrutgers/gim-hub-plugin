@@ -49,7 +49,7 @@ public class PortableStorageItemsTest {
         when(itemManager.canonicalize(anyInt())).thenAnswer(invocation -> invocation.getArgument(0));
         switch (type) {
             case "herb_sack":
-                tracker = new HerbSackItems();
+                tracker = new HerbSackItems(new BankItems());
                 break;
             case "looting_bag":
                 tracker = new LootingBagItems();

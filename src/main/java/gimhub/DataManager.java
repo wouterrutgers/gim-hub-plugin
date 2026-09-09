@@ -203,8 +203,7 @@ public class DataManager {
 
     public void onGameStateChanged(GameStateChanged event) {
         if (event.getGameState() == GameState.LOGIN_SCREEN) {
-            reset();
-            return;
+            activePlayerName = null;
         }
         if (state != null) {
             state.collectionLogManager.onGameStateChanged(event);

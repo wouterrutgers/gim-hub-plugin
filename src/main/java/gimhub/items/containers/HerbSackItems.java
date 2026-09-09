@@ -9,8 +9,9 @@ import java.util.regex.Pattern;
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
 import net.runelite.api.events.ChatMessage;
+import net.runelite.api.events.MenuOptionClicked;
+import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.gameval.ItemID;
-import net.runelite.api.gameval.VarbitID;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.util.Text;
 
@@ -36,8 +37,9 @@ public class HerbSackItems extends ChatStorageItems {
             Pattern.compile("You put the Grimy (.+) herb into your herb sack\\.", Pattern.CASE_INSENSITIVE);
     protected Map<Integer, Integer> checking;
     protected boolean invalidCheck;
+    protected final BankItems bank;
 
-    public HerbSackItems() {
+    public HerbSackItems(BankItems bank) {
         super(
                 Set.of(
                         ItemID.SLAYER_HERB_SACK,
@@ -45,6 +47,7 @@ public class HerbSackItems extends ChatStorageItems {
                         ItemID.SLAYER_HERB_SACK_SILK,
                         ItemID.SLAYER_HERB_SACK_SILK_OPEN),
                 Set.copyOf(HERBS.values()));
+        this.bank = bank;
     }
 
     @Override
@@ -97,9 +100,17 @@ public class HerbSackItems extends ChatStorageItems {
     }
 
     @Override
-    public void onVarbitChanged(Client client, int varpId, int varbitId, ItemManager itemManager) {
-        if (varbitId == VarbitID.EMPTYONDEATH_HERBSACK && client.getVarbitValue(varbitId) == 1) {
+    public void onMenuOptionClicked(Client client, MenuOptionClicked event, ItemManager itemManager) {
+        if (event.getParam1() == InterfaceID.BankDepositbox.INVENTORY
+                && containerIds.contains(event.getItemId())
+                && event.getMenuOption().equals("Empty")) {
+            if (items != null) {
+                bank.addItems(items.getItemsQuantityByID(), itemManager);
+            }
+            checking = null;
             setItems(Map.of(), itemManager);
+            return;
         }
+        super.onMenuOptionClicked(client, event, itemManager);
     }
 }

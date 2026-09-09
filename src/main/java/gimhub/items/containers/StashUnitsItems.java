@@ -233,7 +233,9 @@ public class StashUnitsItems implements TrackedItemContainer {
                     loaded++;
                 }
             }
-            if (loaded > 0 && loaded != last - first + 1) {
+            // The Well of Voyage reserves four slots but stores only the staff, top and bottom.
+            int requiredItems = id == STASHUnit.WELL_OF_VOYAGE.getObjectId() ? 3 : last - first + 1;
+            if (loaded > 0 && loaded < requiredItems) {
                 return null;
             }
             if (!contents.isEmpty()) {

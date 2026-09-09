@@ -171,7 +171,7 @@ public class DataManagerTest {
         logout.setGameState(GameState.LOGIN_SCREEN);
         dataManager.onGameStateChanged(logout);
         assertNull(dataManager.getActivePlayerName());
-        assertNotSame(otherAccount, dataManager.getMaybeResetState(client));
+        assertSame(otherAccount, dataManager.getMaybeResetState(client));
     }
 
     @Test
@@ -241,6 +241,99 @@ public class DataManagerTest {
         assertEquals("scan", updates.get(0).get("type"));
         assertEquals("drop", updates.get(1).get("type"));
         assertTrue(!payload.getValue().containsKey("collection_log_v2"));
+    }
+
+    @Test
+    public void pendingUnlocksSurviveLogoutAndAreUploadedOnceAfterTheSameAccountReturns() {
+        when(client.getTickCount()).thenReturn(100);
+        when(client.getVarbitValue(VarbitID.OPTION_COLLECTION_NEW_ITEM)).thenReturn(1);
+        CollectionLogItemResolver resolver = mock(CollectionLogItemResolver.class);
+        when(resolver.findItemIdentifier("Phoenix")).thenReturn(20693);
+        dataManager
+                .getMaybeResetState(client)
+                .collectionLogManager
+                .onChatMessage(
+                        client,
+                        new ChatMessage(
+                                null,
+                                ChatMessageType.GAMEMESSAGE,
+                                "",
+                                "New item added to your collection log: Phoenix",
+                                "",
+                                0),
+                        resolver);
+        dataManager.stageForSubmitToAPI();
+        dataManager.submitToApi("Player one");
+        verify(httpRequestService, never()).post(eq("https://gim-hub.test/update"), eq("group-token"), anyMap());
+
+        when(client.getGameState()).thenReturn(GameState.LOGIN_SCREEN);
+        GameStateChanged logout = new GameStateChanged();
+        logout.setGameState(GameState.LOGIN_SCREEN);
+        dataManager.onGameStateChanged(logout);
+        assertNull(dataManager.getActivePlayerName());
+        assertNull(dataManager.getMaybeResetState(client));
+
+        when(client.getGameState()).thenReturn(GameState.LOGGED_IN);
+        when(client.getTickCount()).thenReturn(1);
+        dataManager.getMaybeResetState(client).collectionLogManager.onGameTick(client);
+        dataManager.stageForSubmitToAPI();
+        dataManager.submitToApi("Player one");
+        dataManager.stageForSubmitToAPI();
+        dataManager.submitToApi("Player one");
+        ArgumentCaptor<Map<String, Object>> payload = ArgumentCaptor.forClass(Map.class);
+        verify(httpRequestService, times(1))
+                .post(eq("https://gim-hub.test/update"), eq("group-token"), payload.capture());
+        List<Map<String, Object>> updates =
+                (List<Map<String, Object>>) payload.getValue().get("collection_log_updates");
+        assertEquals(1, updates.size());
+        assertEquals("unlock", updates.get(0).get("type"));
+        assertEquals(
+                List.of(Map.of("item_id", 20693, "quantity", 1)), updates.get(0).get("items"));
+    }
+
+    @Test
+    public void stagedDropsSurviveLogoutUntilTheSameAccountUploadsThem() {
+        drop(dataManager.getMaybeResetState(client));
+        dataManager.stageForSubmitToAPI();
+        GameStateChanged logout = new GameStateChanged();
+        logout.setGameState(GameState.LOGIN_SCREEN);
+        dataManager.onGameStateChanged(logout);
+        dataManager.getMaybeResetState(client);
+        dataManager.stageForSubmitToAPI();
+        dataManager.submitToApi("Player one");
+        dataManager.stageForSubmitToAPI();
+        dataManager.submitToApi("Player one");
+
+        ArgumentCaptor<Map<String, Object>> payload = ArgumentCaptor.forClass(Map.class);
+        verify(httpRequestService, times(1))
+                .post(eq("https://gim-hub.test/update"), eq("group-token"), payload.capture());
+        List<Map<String, Object>> updates =
+                (List<Map<String, Object>>) payload.getValue().get("collection_log_updates");
+        assertEquals(1, updates.size());
+        assertEquals("drop", updates.get(0).get("type"));
+        assertEquals(
+                List.of(Map.of("item_id", 6739, "quantity", 1)), updates.get(0).get("items"));
+    }
+
+    @Test
+    public void logoutDoesNotCarryStagedOrPendingUpdatesAcrossAccountHashes() {
+        when(client.getAccountHash()).thenReturn(123L);
+        DataManager.PlayerState state = dataManager.getMaybeResetState(client);
+        drop(state);
+        dataManager.stageForSubmitToAPI();
+        state.collectionLogManager.storeCollectionLogItem(4151, 4);
+        GameStateChanged logout = new GameStateChanged();
+        logout.setGameState(GameState.LOGIN_SCREEN);
+        dataManager.onGameStateChanged(logout);
+
+        when(client.getAccountHash()).thenReturn(456L);
+        state = dataManager.getMaybeResetState(client);
+        state.activityRepository.updateResources(client);
+        dataManager.stageForSubmitToAPI();
+        dataManager.submitToApi("Player one");
+        ArgumentCaptor<Map<String, Object>> payload = ArgumentCaptor.forClass(Map.class);
+        verify(httpRequestService).post(eq("https://gim-hub.test/update"), eq("group-token"), payload.capture());
+        assertTrue(!payload.getValue().containsKey("collection_log_updates"));
     }
 
     @Test
