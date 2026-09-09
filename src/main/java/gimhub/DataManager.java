@@ -28,6 +28,10 @@ public class DataManager {
     // Managed by the Client thread
 
     private PlayerState state = null;
+
+    @Getter
+    private volatile String activePlayerName;
+
     private FlatState flatMostRecent = null;
 
     // Shared by both threads
@@ -50,6 +54,7 @@ public class DataManager {
     public static class PlayerState {
         public final String ownedPlayer;
         public final RuneScapeProfileType ownedProfileType;
+        public final long accountHash;
         public final ActivityRepository activityRepository;
         public final ItemRepository itemRepository;
         public final AchievementRepository achievementRepository;
@@ -71,7 +76,8 @@ public class DataManager {
             return new FlatState(ownedPlayer, ownedProfileType, flat);
         }
 
-        PlayerState(String ownedPlayer, RuneScapeProfileType ownedProfileType) {
+        PlayerState(String ownedPlayer, RuneScapeProfileType ownedProfileType, long accountHash) {
+            this.accountHash = accountHash;
             this.ownedPlayer = ownedPlayer;
             this.ownedProfileType = ownedProfileType;
             this.activityRepository = new ActivityRepository();
@@ -170,11 +176,25 @@ public class DataManager {
         }
 
         final String player = client.getLocalPlayer().getName();
-        if (state == null || !state.ownedPlayer.equals(player) || state.ownedProfileType != profileType) {
-            state = new PlayerState(player, profileType);
+        if (state == null
+                || !state.ownedPlayer.equals(player)
+                || state.ownedProfileType != profileType
+                || state.accountHash != client.getAccountHash()) {
+            reset();
+            state = new PlayerState(player, profileType, client.getAccountHash());
         }
 
+        activePlayerName = player;
         return state;
+    }
+
+    public void reset() {
+        activePlayerName = null;
+        state = null;
+        flatMostRecent = null;
+        flatRef.set(null);
+        isMemberInGroup = false;
+        skipNextNAttempts = 0;
     }
 
     private boolean isSupportedProfile(RuneScapeProfileType profileType) {
@@ -182,6 +202,10 @@ public class DataManager {
     }
 
     public void onGameStateChanged(GameStateChanged event) {
+        if (event.getGameState() == GameState.LOGIN_SCREEN) {
+            reset();
+            return;
+        }
         if (state != null) {
             state.collectionLogManager.onGameStateChanged(event);
         }

@@ -13,14 +13,28 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
 import java.lang.reflect.Field;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
+import net.runelite.api.EnumComposition;
+import net.runelite.api.EnumID;
 import net.runelite.api.GameState;
+import net.runelite.api.Item;
+import net.runelite.api.ItemComposition;
+import net.runelite.api.ItemContainer;
 import net.runelite.api.Player;
 import net.runelite.api.WorldType;
+import net.runelite.api.coords.WorldPoint;
+import net.runelite.api.events.ChatMessage;
+import net.runelite.api.events.GameStateChanged;
+import net.runelite.api.gameval.InventoryID;
+import net.runelite.api.gameval.VarbitID;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.game.ItemStack;
 import net.runelite.client.plugins.loottracker.LootReceived;
@@ -28,6 +42,7 @@ import net.runelite.http.api.loottracker.LootRecordType;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.ArgumentMatchers;
 
 public class DataManagerTest {
     private Client client;
@@ -71,6 +86,92 @@ public class DataManagerTest {
 
         when(player.getName()).thenReturn("Player two");
         assertNotSame(state, dataManager.getMaybeResetState(client));
+    }
+
+    @Test
+    public void transmitsNewStorageTypesAndResetsAllTrackersWhenTheAccountChanges() {
+        ItemManager itemManager = mock(ItemManager.class);
+        ItemComposition composition = mock(ItemComposition.class);
+        when(composition.getPlaceholderTemplateId()).thenReturn(-1);
+        when(itemManager.getItemComposition(ArgumentMatchers.anyInt())).thenReturn(composition);
+        when(itemManager.canonicalize(ArgumentMatchers.anyInt())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(client.getAccountHash()).thenReturn(123L);
+        DataManager.PlayerState state = dataManager.getMaybeResetState(client);
+        for (int inventoryId :
+                new int[] {InventoryID.LOOTING_BAG, InventoryID.SEED_BOX, InventoryID.PREPOT_DEVICE_INV}) {
+            ItemContainer container = mock(ItemContainer.class);
+            when(container.getId()).thenReturn(inventoryId);
+            when(container.getItems()).thenReturn(new Item[] {new Item(199, 2)});
+            state.itemRepository.onItemContainerChanged(container, itemManager);
+        }
+        for (String message : new String[] {
+            "The herb sack is empty.", "Sapphires: 2 / Emeralds: 0 / Rubies: 0 / Diamonds: 0 / Dragonstones: 0"
+        }) {
+            state.itemRepository.onChatMessage(
+                    client, new ChatMessage(null, ChatMessageType.GAMEMESSAGE, "", message, "", 0), itemManager);
+        }
+        // A successful individual interaction also enters the same batched property upload.
+        EnumComposition names = mock(EnumComposition.class);
+        when(names.getStringValue(34736)).thenReturn("Gypsy tent entrance");
+        EnumComposition slots = mock(EnumComposition.class);
+        when(slots.getIntValue(34736)).thenReturn(-1);
+        EnumComposition beginner = mock(EnumComposition.class);
+        when(beginner.getIntVals()).thenReturn(new int[] {34736});
+        when(client.getEnum(1531)).thenReturn(names);
+        when(client.getEnum(1525)).thenReturn(slots);
+        when(client.getEnum(2317)).thenReturn(beginner);
+        when(player.getWorldLocation()).thenReturn(new WorldPoint(3206, 3422, 0));
+        state.itemRepository.onChatMessage(
+                client,
+                new ChatMessage(
+                        null, ChatMessageType.GAMEMESSAGE, "", "You deposit your items into the STASH unit.", "", 0),
+                itemManager);
+        when(client.getEnum(EnumID.RUNEPOUCH_RUNE)).thenReturn(mock(EnumComposition.class));
+        when(client.getVarbitValue(VarbitID.FARMING_TOOLS_WATERINGCAN)).thenReturn(-1);
+        state.itemRepository.onGameTick(client, itemManager);
+        dataManager.stageForSubmitToAPI();
+        dataManager.submitToApi("Player one");
+        dataManager.stageForSubmitToAPI();
+        dataManager.submitToApi("Player one");
+        ArgumentCaptor<Map<String, Object>> updates = ArgumentCaptor.forClass(Map.class);
+        verify(httpRequestService, times(1))
+                .post(eq("https://gim-hub.test/update"), eq("group-token"), updates.capture());
+        for (String property :
+                List.of("herb_sack", "looting_bag", "seed_box", "gem_bag", "chugging_barrel", "stash_units")) {
+            assertTrue(updates.getValue().containsKey(property));
+        }
+        JsonObject serialized = new Gson().toJsonTree(updates.getValue()).getAsJsonObject();
+        assertEquals(
+                34736,
+                serialized
+                        .getAsJsonArray("stash_units")
+                        .get(0)
+                        .getAsJsonObject()
+                        .get("id")
+                        .getAsInt());
+        assertEquals(
+                "filled",
+                serialized
+                        .getAsJsonArray("stash_units")
+                        .get(0)
+                        .getAsJsonObject()
+                        .get("state")
+                        .getAsString());
+
+        when(client.getAccountHash()).thenReturn(456L);
+        DataManager.PlayerState otherAccount = dataManager.getMaybeResetState(client);
+        assertNotSame(state, otherAccount);
+        Map<String, APISerializable> properties = new HashMap<>();
+        otherAccount.itemRepository.flatten(properties);
+        for (String property :
+                List.of("herb_sack", "looting_bag", "seed_box", "gem_bag", "chugging_barrel", "stash_units")) {
+            assertNull(properties.get(property));
+        }
+        GameStateChanged logout = new GameStateChanged();
+        logout.setGameState(GameState.LOGIN_SCREEN);
+        dataManager.onGameStateChanged(logout);
+        assertNull(dataManager.getActivePlayerName());
+        assertNotSame(otherAccount, dataManager.getMaybeResetState(client));
     }
 
     @Test

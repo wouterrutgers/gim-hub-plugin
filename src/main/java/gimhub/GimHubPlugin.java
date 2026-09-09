@@ -7,6 +7,7 @@ import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.*;
 import net.runelite.api.events.*;
+import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.game.ItemManager;
@@ -23,6 +24,9 @@ import net.runelite.client.task.Schedule;
 public class GimHubPlugin extends Plugin {
     @Inject
     private Client client;
+
+    @Inject
+    private ClientThread clientThread;
 
     @Inject
     private DataManager dataManager;
@@ -43,24 +47,26 @@ public class GimHubPlugin extends Plugin {
 
     @Override
     protected void shutDown() throws Exception {
+        dataManager.reset();
         log.info("GIM hub stopped!");
     }
 
     @Schedule(period = SECONDS_BETWEEN_UPLOADS, unit = ChronoUnit.SECONDS, asynchronous = true)
     public void submitToApi() {
-        PlayerState state = dataManager.getMaybeResetState(client);
-        if (state == null) return;
-
-        String playerName = client.getLocalPlayer().getName();
-        dataManager.submitToApi(playerName);
+        String playerName = dataManager.getActivePlayerName();
+        if (playerName != null) {
+            dataManager.submitToApi(playerName);
+        }
     }
 
     @Schedule(period = SECONDS_BETWEEN_INFREQUENT_DATA_CHANGES, unit = ChronoUnit.SECONDS)
     public void updateThingsThatDoNotChangeOften() {
-        PlayerState state = dataManager.getMaybeResetState(client);
-        if (state == null) return;
-
-        state.achievementRepository.update(client);
+        clientThread.invoke(() -> {
+            PlayerState state = dataManager.getMaybeResetState(client);
+            if (state != null) {
+                state.achievementRepository.update(client);
+            }
+        });
     }
 
     @Subscribe
@@ -141,6 +147,7 @@ public class GimHubPlugin extends Plugin {
         PlayerState state = dataManager.getMaybeResetState(client);
         if (state == null) return;
 
+        state.itemRepository.onScriptPreFired(client, event);
         state.collectionLogManager.onScriptPreFired(client, event, collectionLogItemResolver);
     }
 
@@ -151,6 +158,13 @@ public class GimHubPlugin extends Plugin {
 
         state.itemRepository.onScriptPostFired(client, event);
         state.collectionLogManager.onScriptPostFired(client, event);
+    }
+
+    @Subscribe
+    public void onWidgetLoaded(WidgetLoaded event) {
+        PlayerState state = dataManager.getMaybeResetState(client);
+        if (state == null) return;
+        state.itemRepository.onWidgetLoaded(event);
     }
 
     @Subscribe

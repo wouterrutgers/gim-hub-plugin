@@ -24,7 +24,8 @@
 ### 🎒 **Inventory & equipment tracking**
 
 - Complete inventory and equipment views
-- Rune pouch contents with quantities
+- Rune pouch, herb sack, looting bag, seed box, gem bag and chugging barrel contents
+- STASH contents
 - High alchemy and Grand Exchange values
 
 ### 📈 **Skills & progress**

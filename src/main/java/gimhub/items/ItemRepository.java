@@ -32,8 +32,14 @@ public class ItemRepository {
         fishBarrel.setBank(bank);
 
         depositButtonContainers = new TrackedItemContainer[] {
-            // We are missing Herb sacks, Meat pouches, Log baskets, Reagent pouches, Fur pouches and Looting bags here
-            new EssencePouchesItems(), new CoalBagItems(), fishBarrel, new PlankSackItems(),
+            new EssencePouchesItems(),
+            new CoalBagItems(),
+            fishBarrel,
+            new PlankSackItems(),
+            new HerbSackItems(),
+            new GemBagItems(),
+            new LootingBagItems(),
+            new SeedBoxItems(),
         };
         final TrackedItemContainer[] otherContainers = new TrackedItemContainer[] {
             bank,
@@ -42,6 +48,8 @@ public class ItemRepository {
             new SharedBankItems(),
             new PotionStorageItems(),
             new SeedVaultItems(),
+            new ChuggingBarrelItems(),
+            new StashUnitsItems(),
             new PohCostumeRoomItems(),
             new RunePouchItems(),
             new QuiverItems(),
@@ -156,9 +164,24 @@ public class ItemRepository {
         }
     }
 
+    public void onWidgetLoaded(WidgetLoaded event) {
+        for (TrackedItemContainer tracked : allContainers) {
+            tracked.onWidgetLoaded(event);
+        }
+    }
+
+    public void onScriptPreFired(Client client, ScriptPreFired event) {
+        for (TrackedItemContainer tracked : allContainers) {
+            tracked.onScriptPreFired(client, event);
+        }
+    }
+
     private static final int MESLAYERMODE_XQUERY = 7;
 
     public void onScriptPostFired(Client client, ScriptPostFired event) {
+        for (TrackedItemContainer tracked : allContainers) {
+            tracked.onScriptPostFired(client, event);
+        }
         // This script converts strings with "K" "M" and "B" to a format without them
         final int PROCESS_STRING_SCRIPT = 212;
         final boolean isXQueryOpen = client.getVarcIntValue(VarClientID.MESLAYERMODE) == MESLAYERMODE_XQUERY;
