@@ -2,7 +2,10 @@ package gimhub;
 
 import com.google.gson.Gson;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Objects;
+import java.util.Properties;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import lombok.Getter;
@@ -15,7 +18,8 @@ import okio.BufferedSink;
 @Singleton
 public class HttpRequestService {
     private static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
-    private static final String USER_AGENT = "GIM-hub/RuneLite/" + RuneLiteProperties.getVersion();
+    private static final String USER_AGENT =
+            "GIM-hub/" + loadPluginVersion() + " RuneLite/" + RuneLiteProperties.getVersion();
     private static final String PUBLIC_BASE_URL = "https://gim-hub.com";
 
     @Inject
@@ -78,6 +82,16 @@ public class HttpRequestService {
         }
 
         return requestBuilder;
+    }
+
+    private static String loadPluginVersion() {
+        Properties properties = new Properties();
+        try (InputStream input = HttpRequestService.class.getResourceAsStream("runelite-plugin.properties")) {
+            properties.load(input);
+            return Objects.requireNonNull(properties.getProperty("version"), "Missing plugin version");
+        } catch (IOException exception) {
+            throw new ExceptionInInitializerError(exception);
+        }
     }
 
     private boolean isInternalUrl(String url) {

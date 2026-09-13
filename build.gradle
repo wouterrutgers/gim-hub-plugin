@@ -28,8 +28,11 @@ dependencies {
     testImplementation group: 'net.runelite', name:'jshell', version: runeLiteVersion
 }
 
+def pluginProperties = new Properties()
+file('runelite-plugin.properties').withInputStream { pluginProperties.load(it) }
+
 group = 'gimhub'
-version = '1.9.0'
+version = pluginProperties.getProperty('version')
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'

@@ -7,7 +7,12 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.google.gson.Gson;
+import java.io.InputStream;
 import java.lang.reflect.Field;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.Properties;
+import net.runelite.client.RuneLiteProperties;
 import okhttp3.OkHttpClient;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
@@ -53,7 +58,13 @@ public class HttpRequestServiceTest {
         assertEquals("ok", response.getBody());
         assertEquals("group-token", request.getHeader("Authorization"));
         assertEquals("application/json", request.getHeader("Accept"));
-        assertTrue(request.getHeader("User-Agent").startsWith("GIM-hub/RuneLite/"));
+        Properties pluginProperties = new Properties();
+        try (InputStream input = Files.newInputStream(Paths.get("runelite-plugin.properties"))) {
+            pluginProperties.load(input);
+        }
+        assertEquals(
+                "GIM-hub/" + pluginProperties.getProperty("version") + " RuneLite/" + RuneLiteProperties.getVersion(),
+                request.getHeader("User-Agent"));
     }
 
     @Test
