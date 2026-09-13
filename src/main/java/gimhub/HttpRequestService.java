@@ -19,7 +19,7 @@ import okio.BufferedSink;
 public class HttpRequestService {
     private static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
     private static final String USER_AGENT =
-            "GIM-hub/" + loadPluginVersion() + " RuneLite/" + RuneLiteProperties.getVersion();
+            "GIM hub/" + loadPluginVersion() + " RuneLite/" + RuneLiteProperties.getVersion();
     private static final String PUBLIC_BASE_URL = "https://gim-hub.com";
 
     @Inject

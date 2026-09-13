@@ -63,7 +63,7 @@ public class HttpRequestServiceTest {
             pluginProperties.load(input);
         }
         assertEquals(
-                "GIM-hub/" + pluginProperties.getProperty("version") + " RuneLite/" + RuneLiteProperties.getVersion(),
+                "GIM hub/" + pluginProperties.getProperty("version") + " RuneLite/" + RuneLiteProperties.getVersion(),
                 request.getHeader("User-Agent"));
     }
 
