@@ -1,0 +1,52 @@
+name: Sync README
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 6 * * *'
+
+permissions:
+  contents: write
+
+jobs:
+  sync-readme:
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download GIM Hub README
+        run: |
+          curl --fail --location --silent --show-error \
+            https://raw.githubusercontent.com/wouterrutgers/gim-hub.com/master/README.md \
+            --output README.md
+          python3 <<'PYTHON'
+          from pathlib import Path
+          import re
+          from urllib.parse import urlsplit
+
+          readme = Path('README.md')
+
+          def link_to_source(match):
+              prefix, target, suffix = match.groups()
+              if urlsplit(target).scheme or target.startswith(('/', '#', '?')):
+                  return match.group()
+              base = ('https://raw.githubusercontent.com/wouterrutgers/gim-hub.com/master/'
+                      if prefix.startswith('!') else
+                      'https://github.com/wouterrutgers/gim-hub.com/blob/master/')
+              return f'{prefix}{base}{target.removeprefix("./")}{suffix}'
+
+          readme.write_text(re.sub(r'(!?\[[^]]*\]\()([^)\s]+)(\))', link_to_source, readme.read_text()))
+          PYTHON
+
+      - name: Commit README changes
+        run: |
+          if git diff --quiet -- README.md; then
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add README.md
+          git commit -m 'sync readme from gim-hub'
+          git push origin HEAD:master
