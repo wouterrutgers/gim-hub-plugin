@@ -126,11 +126,45 @@ public class PohStorageItemsTest {
         when(client.getVarpValue(VarPlayerID.PRAYER20)).thenReturn(0);
         when(client.getVarpValue(VarPlayerID.MENAGERIE_CONTENTS2)).thenReturn(0x80000000);
         when(client.getVarpValue(VarPlayerID.MENAGERIE_CONTENTS3)).thenReturn(0x80000000);
+        house.onVarbitChanged(client, VarPlayerID.PRAYER20, -1, itemManager);
         house.onGameTick(client, itemManager);
         assertEquals(Map.of(1555, 2), pairs(house.get()));
         house.onItemContainerChanged(container(InventoryID.POH_MENAGERIE_PETS), itemManager);
         house.onGameTick(client, itemManager);
         assertEquals(Map.of(), pairs(house.get()));
+    }
+
+    @Test
+    public void petBitfieldUpdatesPublishWithoutOpeningTheHouseOrReceivingOrdinaryPets() {
+        PohPetHouseItems house = new PohPetHouseItems();
+        EnumComposition pets = mock(EnumComposition.class);
+        when(client.getEnum(985)).thenReturn(pets);
+        when(pets.getKeys()).thenReturn(new int[] {63});
+        when(pets.getIntValue(63)).thenReturn(12652);
+
+        when(client.getVarpValue(VarPlayerID.MENAGERIE_CONTENTS3)).thenReturn(1);
+        house.onVarbitChanged(client, VarPlayerID.MENAGERIE_CONTENTS3, -1, itemManager);
+        house.onGameTick(client, itemManager);
+        assertEquals(Map.of(12652, 1), pairs(house.get()));
+
+        when(client.getVarpValue(VarPlayerID.MENAGERIE_CONTENTS3)).thenReturn(0);
+        house.onVarbitChanged(client, VarPlayerID.MENAGERIE_CONTENTS3, -1, itemManager);
+        house.onGameTick(client, itemManager);
+        assertEquals(Map.of(), pairs(house.get()));
+    }
+
+    @Test
+    public void openingPetHousePublishesBossPetsWithoutAnOrdinaryPetContainerUpdate() {
+        PohPetHouseItems house = new PohPetHouseItems();
+        EnumComposition pets = mock(EnumComposition.class);
+        when(client.getEnum(985)).thenReturn(pets);
+        when(pets.getKeys()).thenReturn(new int[] {0});
+        when(pets.getIntValue(0)).thenReturn(12650);
+        when(client.getVarpValue(VarPlayerID.PRAYER20)).thenReturn(1);
+
+        when(client.getWidget(InterfaceID.PohMenagerie.UNIVERSE)).thenReturn(mock(Widget.class));
+        house.onGameTick(client, itemManager);
+        assertEquals(Map.of(12650, 1), pairs(house.get()));
     }
 
     @Test

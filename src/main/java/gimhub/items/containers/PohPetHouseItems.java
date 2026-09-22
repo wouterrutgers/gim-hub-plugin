@@ -8,6 +8,7 @@ import net.runelite.api.Client;
 import net.runelite.api.EnumComposition;
 import net.runelite.api.Item;
 import net.runelite.api.ItemContainer;
+import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.gameval.InventoryID;
 import net.runelite.api.gameval.VarPlayerID;
 import net.runelite.client.game.ItemManager;
@@ -15,8 +16,9 @@ import net.runelite.client.game.ItemManager;
 public class PohPetHouseItems implements TrackedItemContainer {
     private static final int PETS_ENUM = 985;
 
-    private ItemsUnordered ordinaryPets;
+    private ItemsUnordered ordinaryPets = new ItemsUnordered();
     private ItemsUnordered items;
+    private boolean pending;
 
     @Override
     public String key() {
@@ -38,13 +40,28 @@ public class PohPetHouseItems implements TrackedItemContainer {
                 }
             }
             ordinaryPets = new ItemsUnordered(contents, itemManager);
+            pending = true;
+        }
+    }
+
+    @Override
+    public void onVarbitChanged(Client client, int varpId, int varbitId, ItemManager itemManager) {
+        if (varpId == VarPlayerID.PRAYER20
+                || varpId == VarPlayerID.MENAGERIE_CONTENTS2
+                || varpId == VarPlayerID.MENAGERIE_CONTENTS3) {
+            pending = true;
         }
     }
 
     @Override
     public void onGameTick(Client client, ItemManager itemManager) {
-        if (ordinaryPets == null) {
+        if (!pending && client.getWidget(InterfaceID.PohMenagerie.UNIVERSE) == null) {
             return;
+        }
+
+        ItemContainer container = client.getItemContainer(InventoryID.POH_MENAGERIE_PETS);
+        if (container != null) {
+            onItemContainerChanged(container, itemManager);
         }
 
         Map<Integer, Integer> contents = new HashMap<>(ordinaryPets.getItemsQuantityByID());
@@ -66,5 +83,6 @@ public class PohPetHouseItems implements TrackedItemContainer {
         }
 
         items = new ItemsUnordered(contents, itemManager);
+        pending = false;
     }
 }
