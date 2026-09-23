@@ -58,7 +58,8 @@ public class CollectionLogManager {
             "Mysterious page",
             "Decorative boots",
             "Decorative full helm",
-            "Medallion fragment");
+            "Medallion fragment"
+            "Crawling hand");
 
     private static final int UNLOCK_MATCH_TICKS = 10;
     private final List<PendingUpdate> pendingUpdates = new ArrayList<>();
