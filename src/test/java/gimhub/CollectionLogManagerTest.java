@@ -1,6 +1,7 @@
 package gimhub;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -24,6 +25,7 @@ import net.runelite.api.events.ScriptPreFired;
 import net.runelite.api.events.VarbitChanged;
 import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.gameval.VarClientID;
+import net.runelite.api.gameval.VarPlayerID;
 import net.runelite.api.gameval.VarbitID;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.game.ItemStack;
@@ -59,6 +61,8 @@ public class CollectionLogManagerTest {
 
     @Test
     public void automaticScanPublishesOnlyAfterTheQuietTickBoundary() {
+        when(client.getVarpValue(VarPlayerID.COLLECTION_COUNT_MAX)).thenReturn(1717);
+        when(client.getVarpValue(VarPlayerID.COLLECTION_COUNT)).thenReturn(1);
         when(client.getTickCount()).thenReturn(10);
         collectionLogManager.onScriptPostFired(client, new ScriptPostFired(7797));
         collectionLogManager.storeCollectionLogItem(100, 2);
@@ -70,7 +74,10 @@ public class CollectionLogManagerTest {
 
         when(client.getTickCount()).thenReturn(13);
         collectionLogManager.onGameTick(client);
-        assertEquals(Map.of(100, 2), flattenedItems());
+        assertEquals(
+                List.of(Map.of(
+                        "type", "scan", "items", List.of(Map.of("item_id", 100, "quantity", 2)), "total_obtained", 1)),
+                flattenedUpdates());
     }
 
     @Test
@@ -159,6 +166,8 @@ public class CollectionLogManagerTest {
 
     @Test
     public void leavingTheGameReleasesPendingCollectionData() {
+        when(client.getVarpValue(VarPlayerID.COLLECTION_COUNT_MAX)).thenReturn(1717);
+        when(client.getVarpValue(VarPlayerID.COLLECTION_COUNT)).thenReturn(1);
         when(client.getTickCount()).thenReturn(10);
         collectionLogManager.onScriptPostFired(client, new ScriptPostFired(7797));
         collectionLogManager.storeCollectionLogItem(100, 2);
@@ -168,7 +177,9 @@ public class CollectionLogManagerTest {
         event.setGameState(GameState.LOGIN_SCREEN);
         collectionLogManager.onGameStateChanged(event);
 
-        assertEquals(Map.of(100, 2), flattenedItems());
+        assertEquals(
+                List.of(Map.of("type", "scan", "items", List.of(Map.of("item_id", 100, "quantity", 2)))),
+                flattenedUpdates());
     }
 
     @Test
@@ -229,6 +240,8 @@ public class CollectionLogManagerTest {
 
     @Test
     public void fullScanWaitsUntilCompleteWithoutDiscardingDropsDuringIt() {
+        when(client.getVarpValue(VarPlayerID.COLLECTION_COUNT_MAX)).thenReturn(1717);
+        when(client.getVarpValue(VarPlayerID.COLLECTION_COUNT)).thenReturn(1);
         when(client.getTickCount()).thenReturn(10);
         collectionLogManager.onScriptPostFired(client, new ScriptPostFired(7797));
         collectionLogManager.storeCollectionLogItem(6739, 5);
@@ -236,15 +249,26 @@ public class CollectionLogManagerTest {
         assertNull(flattenedValue());
         when(client.getTickCount()).thenReturn(13);
         collectionLogManager.onGameTick(client);
-        assertEquals(2, flattenedUpdates().size());
+        List<Map<String, Object>> updates = flattenedUpdates();
+        assertEquals(2, updates.size());
+        assertFalse(updates.get(0).containsKey("total_obtained"));
     }
 
     @Test
     public void adventureLogDoesNotDiscardPendingPersonalDrops() {
+        when(client.getVarpValue(VarPlayerID.COLLECTION_COUNT_MAX)).thenReturn(1717);
         loot(6739, 1);
+        collectionLogManager.onScriptPostFired(client, new ScriptPostFired(7797));
         collectionLogManager.storeCollectionLogItem(6739, 100);
-        collectionLogManager.clearCollectionLogItems();
-        assertEquals("drop", flattenedUpdates().get(0).get("type"));
+        when(client.getVarbitValue(VarbitID.COLLECTION_POH_HOST_BOOK_OPEN)).thenReturn(1);
+        VarbitChanged event = mock(VarbitChanged.class);
+        when(event.getVarbitId()).thenReturn(VarbitID.COLLECTION_POH_HOST_BOOK_OPEN);
+        collectionLogManager.onVarbitChanged(client, event);
+        when(client.getTickCount()).thenReturn(3);
+        collectionLogManager.onGameTick(client);
+        assertEquals(
+                List.of(Map.of("type", "drop", "items", List.of(Map.of("item_id", 6739, "quantity", 1)))),
+                flattenedUpdates());
     }
 
     @Test
@@ -400,6 +424,55 @@ public class CollectionLogManagerTest {
                 List.of(Map.of("type", "scan", "items", List.of(Map.of("item_id", 21047, "quantity", 1)))),
                 flattenedUpdates());
         assertNull(flattenedValue());
+    }
+
+    @Test
+    public void completedScanDoesNotAbsorbLaterPartialPageData() {
+        when(client.getVarbitValue(VarbitID.RAIDS_CLIENT_INDUNGEON)).thenReturn(1);
+        when(client.getVarpValue(VarPlayerID.COLLECTION_COUNT_MAX)).thenReturn(1717);
+        when(client.getVarpValue(VarPlayerID.COLLECTION_COUNT)).thenReturn(1);
+        chatNotification("Torn prayer scroll", 21047);
+        collectionLogManager.onScriptPostFired(client, new ScriptPostFired(7797));
+        collectionLogManager.storeCollectionLogItem(21047, 1);
+        when(client.getTickCount()).thenReturn(3);
+        collectionLogManager.onGameTick(client);
+        assertNull(flattenedValue());
+
+        collectionLogManager.storeCollectionLogItem(6739, 2);
+        chambersLoot(21047, 1);
+
+        assertEquals(
+                List.of(
+                        Map.of(
+                                "type",
+                                "scan",
+                                "items",
+                                List.of(Map.of("item_id", 21047, "quantity", 1)),
+                                "total_obtained",
+                                1),
+                        Map.of("type", "scan", "items", List.of(Map.of("item_id", 6739, "quantity", 2)))),
+                flattenedUpdates());
+    }
+
+    @Test
+    public void emptyScanCanConfirmAnEmptyCollectionUsingTheGameTotal() {
+        when(client.getVarpValue(VarPlayerID.COLLECTION_COUNT_MAX)).thenReturn(1717);
+        collectionLogManager.onScriptPostFired(client, new ScriptPostFired(7797));
+        when(client.getTickCount()).thenReturn(3);
+        collectionLogManager.onGameTick(client);
+
+        assertEquals(List.of(Map.of("type", "scan", "items", List.of(), "total_obtained", 0)), flattenedUpdates());
+    }
+
+    @Test
+    public void emptyScanWithoutGameTotalsDoesNotReplaceStoredItemsOrBlockDrops() {
+        collectionLogManager.onScriptPostFired(client, new ScriptPostFired(7797));
+        when(client.getTickCount()).thenReturn(3);
+        collectionLogManager.onGameTick(client);
+        assertNull(flattenedValue());
+
+        loot(6739, 1);
+        assertEquals("drop", flattenedUpdates().get(0).get("type"));
     }
 
     private void chatNotification(String itemName, int itemIdentifier) {

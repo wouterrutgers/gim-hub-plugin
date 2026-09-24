@@ -23,6 +23,7 @@ import net.runelite.api.events.ScriptPreFired;
 import net.runelite.api.events.VarbitChanged;
 import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.gameval.VarClientID;
+import net.runelite.api.gameval.VarPlayerID;
 import net.runelite.api.gameval.VarbitID;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.game.ItemStack;
@@ -72,6 +73,7 @@ public class CollectionLogManager {
         private final Map<Integer, Integer> items;
         private int tick;
         private boolean awaitingChambersLoot;
+        private Integer totalObtained;
 
         private PendingUpdate(String type, Map<Integer, Integer> items, int tick) {
             this.type = type;
@@ -81,6 +83,7 @@ public class CollectionLogManager {
     }
 
     private boolean automaticCollectionLogRetrieval = false;
+    private PendingUpdate automaticScan;
     private boolean collectionLogNotificationStarted = false;
     private int collectionLogTransmitTick = -1;
 
@@ -88,7 +91,7 @@ public class CollectionLogManager {
         if (quantity < 0) return;
         if (!pendingUpdates.isEmpty()) {
             PendingUpdate last = pendingUpdates.get(pendingUpdates.size() - 1);
-            if (last.type.equals("scan")) {
+            if (last.type.equals("scan") && last.totalObtained == null) {
                 last.items.put(itemIdentifier, quantity);
                 return;
             }
@@ -98,6 +101,9 @@ public class CollectionLogManager {
 
     public synchronized void clearCollectionLogItems() {
         pendingUpdates.removeIf(update -> update.type.equals("scan"));
+        automaticScan = null;
+        automaticCollectionLogRetrieval = false;
+        collectionLogTransmitTick = -1;
     }
 
     public synchronized void flatten(Map<String, APISerializable> flat) {
@@ -109,7 +115,9 @@ public class CollectionLogManager {
             PendingUpdate update = iterator.next();
             if (update.awaitingChambersLoot
                     || (update.type.equals("unlock") && currentTick <= update.tick + UNLOCK_MATCH_TICKS)) break;
-            ready.add(new CollectionLogUpdates.Update(update.type, update.items));
+            if (!update.items.isEmpty() || update.totalObtained != null) {
+                ready.add(new CollectionLogUpdates.Update(update.type, update.items, update.totalObtained));
+            }
             iterator.remove();
         }
         if (!ready.isEmpty()) flat.put("collection_log_updates", new CollectionLogUpdates(ready));
@@ -173,6 +181,7 @@ public class CollectionLogManager {
 
     protected synchronized void resetTransientState() {
         automaticCollectionLogRetrieval = false;
+        automaticScan = null;
         collectionLogNotificationStarted = false;
         collectionLogTransmitTick = -1;
         pendingUpdates.stream()
@@ -189,6 +198,17 @@ public class CollectionLogManager {
             return;
         }
 
+        if (automaticScan != null
+                && pendingUpdates.get(pendingUpdates.size() - 1) == automaticScan
+                && client.getVarpValue(VarPlayerID.COLLECTION_COUNT_MAX) > 0) {
+            automaticScan.totalObtained = client.getVarpValue(VarPlayerID.COLLECTION_COUNT);
+            log.info(
+                    "Collection log scan ready: {} transmitted items, game total {}.",
+                    automaticScan.items.size(),
+                    automaticScan.totalObtained);
+        }
+
+        automaticScan = null;
         collectionLogTransmitTick = -1;
         automaticCollectionLogRetrieval = false;
     }
@@ -235,7 +255,7 @@ public class CollectionLogManager {
                 collectionLogItemResolver);
     }
 
-    public void onScriptPostFired(Client client, ScriptPostFired event) {
+    public synchronized void onScriptPostFired(Client client, ScriptPostFired event) {
         if (event.getScriptId() != COLLECTION_LOG_SETUP_SCRIPT) {
             return;
         }
@@ -250,6 +270,8 @@ public class CollectionLogManager {
         }
 
         automaticCollectionLogRetrieval = true;
+        automaticScan = new PendingUpdate("scan", Map.of(), client.getTickCount());
+        pendingUpdates.add(automaticScan);
         collectionLogTransmitTick = client.getTickCount();
         client.menuAction(-1, InterfaceID.Collection.SEARCH_TOGGLE, MenuAction.CC_OP, 1, -1, "Search", null);
         client.runScript(COLLECTION_INITIALIZATION_SCRIPT);

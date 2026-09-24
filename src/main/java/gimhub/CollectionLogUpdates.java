@@ -12,20 +12,28 @@ public class CollectionLogUpdates implements APISerializable {
     public static class Update {
         private final String type;
         private final Map<Integer, Integer> items;
+        private final Integer totalObtained;
 
         public Update(String type, Map<Integer, Integer> items) {
+            this(type, items, null);
+        }
+
+        public Update(String type, Map<Integer, Integer> items, Integer totalObtained) {
             this.type = type;
+            this.totalObtained = totalObtained;
             this.items = new LinkedHashMap<>(items);
         }
 
         private Map<String, Object> serialize() {
-            return Map.of(
+            Map<String, Object> serialized = new LinkedHashMap<>(Map.of(
                     "type",
                     type,
                     "items",
                     items.entrySet().stream()
                             .map(item -> Map.of("item_id", item.getKey(), "quantity", item.getValue()))
-                            .collect(Collectors.toList()));
+                            .collect(Collectors.toList())));
+            if (totalObtained != null) serialized.put("total_obtained", totalObtained);
+            return serialized;
         }
     }
 
