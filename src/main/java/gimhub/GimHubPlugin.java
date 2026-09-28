@@ -12,15 +12,12 @@ import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.plugins.Plugin;
-import net.runelite.client.plugins.PluginDependency;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.loottracker.LootReceived;
-import net.runelite.client.plugins.loottracker.LootTrackerPlugin;
 import net.runelite.client.task.Schedule;
 
 @Slf4j
 @PluginDescriptor(name = "GIM hub")
-@PluginDependency(LootTrackerPlugin.class)
 public class GimHubPlugin extends Plugin {
     @Inject
     private Client client;
