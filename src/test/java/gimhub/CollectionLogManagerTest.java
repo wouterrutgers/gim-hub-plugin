@@ -66,6 +66,7 @@ public class CollectionLogManagerTest {
         when(client.getTickCount()).thenReturn(10);
         collectionLogManager.onScriptPostFired(client, new ScriptPostFired(7797));
         collectionLogManager.storeCollectionLogItem(100, 2);
+        collectionLogManager.storeCollectionLogItem(200, 0);
         assertNull(flattenedValue());
 
         when(client.getTickCount()).thenReturn(12);
@@ -76,7 +77,12 @@ public class CollectionLogManagerTest {
         collectionLogManager.onGameTick(client);
         assertEquals(
                 List.of(Map.of(
-                        "type", "scan", "items", List.of(Map.of("item_id", 100, "quantity", 2)), "total_obtained", 1)),
+                        "type",
+                        "scan",
+                        "items",
+                        List.of(Map.of("item_id", 100, "quantity", 2), Map.of("item_id", 200, "quantity", 0)),
+                        "total_obtained",
+                        1)),
                 flattenedUpdates());
     }
 
@@ -462,6 +468,19 @@ public class CollectionLogManagerTest {
         collectionLogManager.onGameTick(client);
 
         assertEquals(List.of(Map.of("type", "scan", "items", List.of(), "total_obtained", 0)), flattenedUpdates());
+    }
+
+    @Test
+    public void emptyScanWithObtainedItemsDoesNotReplaceStoredItemsOrBlockDrops() {
+        when(client.getVarpValue(VarPlayerID.COLLECTION_COUNT_MAX)).thenReturn(1717);
+        when(client.getVarpValue(VarPlayerID.COLLECTION_COUNT)).thenReturn(94);
+        collectionLogManager.onScriptPostFired(client, new ScriptPostFired(7797));
+        when(client.getTickCount()).thenReturn(3);
+        collectionLogManager.onGameTick(client);
+        assertNull(flattenedValue());
+
+        loot(6739, 1);
+        assertEquals("drop", flattenedUpdates().get(0).get("type"));
     }
 
     @Test

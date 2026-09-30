@@ -200,7 +200,11 @@ public class CollectionLogManager {
 
         if (automaticScan != null
                 && pendingUpdates.get(pendingUpdates.size() - 1) == automaticScan
-                && client.getVarpValue(VarPlayerID.COLLECTION_COUNT_MAX) > 0) {
+                && client.getVarpValue(VarPlayerID.COLLECTION_COUNT_MAX) > 0
+                && automaticScan.items.values().stream()
+                                .filter(quantity -> quantity > 0)
+                                .count()
+                        == client.getVarpValue(VarPlayerID.COLLECTION_COUNT)) {
             automaticScan.totalObtained = client.getVarpValue(VarPlayerID.COLLECTION_COUNT);
             log.info(
                     "Collection log scan ready: {} transmitted items, game total {}.",
