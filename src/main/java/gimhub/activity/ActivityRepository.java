@@ -4,6 +4,7 @@ import gimhub.APISerializable;
 import java.util.Map;
 import net.runelite.api.Actor;
 import net.runelite.api.Client;
+import net.runelite.api.NPC;
 import net.runelite.api.Player;
 import net.runelite.api.WorldEntity;
 import net.runelite.api.WorldView;
@@ -44,7 +45,7 @@ public class ActivityRepository {
         if (player == null) return;
 
         Actor actor = player.getInteracting();
-        if (actor == null) return;
+        if (!(actor instanceof NPC)) return;
 
         interacting = new Interaction(actor, client);
     }

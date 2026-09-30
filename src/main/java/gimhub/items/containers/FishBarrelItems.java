@@ -27,9 +27,6 @@ public class FishBarrelItems implements TrackedItemContainer {
     private static final int CAPACITY = 28;
     private static final int GAME_TICK_MARGIN = 3;
 
-    private static final int CHECK_WIDGET_GROUP_ID = 193;
-    private static final int CHECK_WIDGET_CHILD_ID = 2;
-
     private static final String EMPTY_MESSAGE = "The barrel is empty.";
     private static final String CONTENTS_PREFIX = "The barrel contains:";
     private static final Pattern ENTRY_PATTERN = Pattern.compile("(\\d+)\\s*x\\s*([a-zA-Z ]+)");
@@ -341,7 +338,7 @@ public class FishBarrelItems implements TrackedItemContainer {
 
     @Override
     public void onGameTick(Client client, ItemManager itemManager) {
-        final Widget widget = client.getWidget(CHECK_WIDGET_GROUP_ID, CHECK_WIDGET_CHILD_ID);
+        final Widget widget = client.getWidget(InterfaceID.Objectbox.TEXT);
         if (widget != null) {
             updateFromCheckWidget(widget, itemManager);
         }

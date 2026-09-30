@@ -3,10 +3,11 @@ package gimhub.items.containers;
 import gimhub.APISerializable;
 import gimhub.items.ItemsUnordered;
 import net.runelite.api.ItemContainer;
+import net.runelite.api.gameval.InventoryID;
 import net.runelite.client.game.ItemManager;
 
 public class PohCostumeRoomItems implements TrackedItemContainer {
-    private static final int INVENTORY_ID_COSTUME_ROOM = 33405;
+    private static final int INVENTORY_ID_COSTUME_ROOM = InventoryID.POH_COSTUMES | 0x8000;
 
     private ItemsUnordered items = null;
 

@@ -10,9 +10,6 @@ import net.runelite.api.widgets.Widget;
 import net.runelite.client.game.ItemManager;
 
 public class SharedBankItems implements TrackedItemContainer {
-    private static final int WIDGET_GROUP_STORAGE_LOADER_PARENT = InterfaceID.LOADING_ICON_MODAL;
-    private static final int WIDGET_GROUP_STORAGE_LOADER_TEXT_CHILD = 1;
-
     private ItemsUnordered committed = null;
     private ItemsUnordered uncommitted = null;
 
@@ -35,8 +32,7 @@ public class SharedBankItems implements TrackedItemContainer {
 
     @Override
     public void onGameTick(Client client, ItemManager itemManager) {
-        Widget groupStorageLoaderText =
-                client.getWidget(WIDGET_GROUP_STORAGE_LOADER_PARENT, WIDGET_GROUP_STORAGE_LOADER_TEXT_CHILD);
+        Widget groupStorageLoaderText = client.getWidget(InterfaceID.LoadingIconModal.TEXT);
         if (groupStorageLoaderText != null && groupStorageLoaderText.getText().equalsIgnoreCase("saving...")) {
             committed = uncommitted;
             uncommitted = null;

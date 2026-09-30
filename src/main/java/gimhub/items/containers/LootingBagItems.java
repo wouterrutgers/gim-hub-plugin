@@ -20,7 +20,11 @@ public class LootingBagItems extends ContainerItems {
     protected int transferDeadline;
 
     public LootingBagItems() {
-        super(InventoryID.LOOTING_BAG, InterfaceID.WILDERNESS_LOOTINGBAG, ItemID.LOOTING_BAG, ItemID.LOOTING_BAG_OPEN);
+        super(
+                InventoryID.LOOTING_BAG,
+                InterfaceID.WildernessLootingbag.UNIVERSE,
+                ItemID.LOOTING_BAG,
+                ItemID.LOOTING_BAG_OPEN);
     }
 
     @Override

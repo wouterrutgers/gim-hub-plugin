@@ -60,7 +60,6 @@ public class ItemRepository {
             new ToolLeprechaunItems(),
             new ElnockInquisitorItems(),
             tackleBox,
-            fishBarrel,
         };
 
         allContainers = Stream.of(Stream.of(otherContainers), Stream.of(depositButtonContainers))

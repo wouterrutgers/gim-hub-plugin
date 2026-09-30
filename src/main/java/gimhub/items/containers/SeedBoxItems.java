@@ -130,7 +130,7 @@ public class SeedBoxItems extends ContainerItems {
     }
 
     public SeedBoxItems() {
-        super(InventoryID.SEED_BOX, InterfaceID.HOSIDIUS_SEEDBOX, ItemID.SEED_BOX, ItemID.SEED_BOX_OPEN);
+        super(InventoryID.SEED_BOX, InterfaceID.HosidiusSeedbox.UNIVERSE, ItemID.SEED_BOX, ItemID.SEED_BOX_OPEN);
     }
 
     @Override

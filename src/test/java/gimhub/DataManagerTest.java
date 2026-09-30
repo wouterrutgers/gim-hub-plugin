@@ -1,12 +1,14 @@
 package gimhub;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -30,6 +32,8 @@ import net.runelite.api.ItemComposition;
 import net.runelite.api.ItemContainer;
 import net.runelite.api.Player;
 import net.runelite.api.WorldType;
+import net.runelite.api.WorldView;
+import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.ChatMessage;
 import net.runelite.api.events.GameStateChanged;
@@ -202,6 +206,28 @@ public class DataManagerTest {
         assertTrue(updates.getValue().containsKey("league_mode"));
         assertTrue(updates.getValue().containsKey("timezone"));
         assertTrue(updates.getValue().containsKey("stats"));
+    }
+
+    @Test
+    public void playerInteractionsAreNotUploaded() {
+        Player otherPlayer = mock(Player.class);
+        WorldView worldView = mock(WorldView.class);
+        when(worldView.getId()).thenReturn(WorldView.TOPLEVEL);
+        when(client.getWorldView(WorldView.TOPLEVEL)).thenReturn(worldView);
+        when(client.getTopLevelWorldView()).thenReturn(worldView);
+        when(otherPlayer.getName()).thenReturn("Another player");
+        doReturn(new LocalPoint(128, 128, worldView)).when(otherPlayer).getLocalLocation();
+        when(player.getInteracting()).thenReturn(otherPlayer);
+
+        DataManager.PlayerState state = dataManager.getMaybeResetState(client);
+        state.activityRepository.updateResources(client);
+        state.activityRepository.updateInteracting(client);
+        dataManager.stageForSubmitToAPI();
+        dataManager.submitToApi("Player one");
+
+        ArgumentCaptor<Map<String, Object>> updates = ArgumentCaptor.forClass(Map.class);
+        verify(httpRequestService).post(eq("https://gim-hub.test/update"), eq("group-token"), updates.capture());
+        assertFalse(updates.getValue().containsKey("interacting"));
     }
 
     @Test

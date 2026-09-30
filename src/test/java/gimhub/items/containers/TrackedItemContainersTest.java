@@ -20,6 +20,7 @@ import net.runelite.api.Item;
 import net.runelite.api.ItemComposition;
 import net.runelite.api.ItemContainer;
 import net.runelite.api.events.ChatMessage;
+import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.gameval.InventoryID;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.api.gameval.VarPlayerID;
@@ -84,7 +85,7 @@ public class TrackedItemContainersTest {
 
         Widget widget = mock(Widget.class);
         when(widget.getText()).thenReturn("Saving...");
-        when(client.getWidget(anyInt(), anyInt())).thenReturn(widget);
+        when(client.getWidget(InterfaceID.LoadingIconModal.TEXT)).thenReturn(widget);
         sharedBankItems.onGameTick(client, itemManager);
 
         assertEquals(Map.of(100, 2), serializedPairs(sharedBankItems.get()));
@@ -115,7 +116,7 @@ public class TrackedItemContainersTest {
         FishBarrelItems fishBarrelItems = new FishBarrelItems();
         Widget widget = mock(Widget.class);
         when(widget.getText()).thenReturn("The barrel contains: 2 x trout, 3 x lobster");
-        when(client.getWidget(193, 2)).thenReturn(widget);
+        when(client.getWidget(InterfaceID.Objectbox.TEXT)).thenReturn(widget);
 
         fishBarrelItems.onGameTick(client, itemManager);
 

@@ -69,7 +69,7 @@ public class ChuggingBarrelItems extends ContainerItems {
     }
 
     public ChuggingBarrelItems() {
-        super(InventoryID.PREPOT_DEVICE_INV, InterfaceID.PREPOT_DEVICE);
+        super(InventoryID.PREPOT_DEVICE_INV, InterfaceID.PrepotDevice.UNIVERSE);
     }
 
     @Override

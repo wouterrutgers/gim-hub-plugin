@@ -14,16 +14,16 @@ import net.runelite.client.game.ItemManager;
 abstract class ContainerItems implements TrackedItemContainer {
     protected ItemsUnordered items;
     protected final int inventoryId;
-    protected final int interfaceId;
+    protected final int interfaceRoot;
     protected final Set<Integer> containerIds;
     protected boolean depositing;
     protected boolean pending;
     protected boolean authoritativeUpdate;
     protected boolean firstTick = true;
 
-    protected ContainerItems(int inventoryId, int interfaceId, Integer... containerIds) {
+    protected ContainerItems(int inventoryId, int interfaceRoot, Integer... containerIds) {
         this.inventoryId = inventoryId;
-        this.interfaceId = interfaceId;
+        this.interfaceRoot = interfaceRoot;
         this.containerIds = Set.of(containerIds);
     }
 
@@ -60,7 +60,7 @@ abstract class ContainerItems implements TrackedItemContainer {
 
     @Override
     public void onWidgetLoaded(WidgetLoaded event) {
-        if (event.getGroupId() == interfaceId) {
+        if (event.getGroupId() == (interfaceRoot >>> 16)) {
             pending = true;
         }
     }
@@ -69,12 +69,12 @@ abstract class ContainerItems implements TrackedItemContainer {
     public void onGameTick(Client client, ItemManager itemManager) {
         if (firstTick) {
             firstTick = false;
-            pending = client.getWidget(interfaceId, 0) != null;
+            pending = client.getWidget(interfaceRoot) != null;
         }
         if (!pending) {
             return;
         }
-        if (client.getWidget(interfaceId, 0) == null) {
+        if (client.getWidget(interfaceRoot) == null) {
             pending = false;
             return;
         }

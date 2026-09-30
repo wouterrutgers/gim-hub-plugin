@@ -372,9 +372,9 @@ public class StorageEventsTest {
         for (ContainerItems tracker : List.of(new LootingBagItems(), new SeedBoxItems(), new ChuggingBarrelItems())) {
             tracker.onGameTick(client, itemManager);
             WidgetLoaded loaded = new WidgetLoaded();
-            loaded.setGroupId(tracker.interfaceId);
+            loaded.setGroupId(tracker.interfaceRoot >>> 16);
             tracker.onWidgetLoaded(loaded);
-            when(client.getWidget(tracker.interfaceId, 0)).thenReturn(mock(Widget.class));
+            when(client.getWidget(tracker.interfaceRoot)).thenReturn(mock(Widget.class));
             tracker.onGameTick(client, itemManager);
             assertNull(tracker.get());
             doReturn(container(tracker.inventoryId, new Item(ItemID.COINS, 10)))
@@ -382,7 +382,7 @@ public class StorageEventsTest {
                     .getItemContainer(tracker.inventoryId);
             tracker.onGameTick(client, itemManager);
             assertEquals(Map.of(ItemID.COINS, 10), pairs(tracker.get()));
-            when(client.getWidget(tracker.interfaceId, 0)).thenReturn(null);
+            when(client.getWidget(tracker.interfaceRoot)).thenReturn(null);
             when(client.getItemContainer(tracker.inventoryId)).thenReturn(null);
             tracker.onGameTick(client, itemManager);
             assertEquals(Map.of(ItemID.COINS, 10), pairs(tracker.get()));

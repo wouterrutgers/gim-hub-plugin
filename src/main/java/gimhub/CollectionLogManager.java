@@ -206,7 +206,7 @@ public class CollectionLogManager {
                                 .count()
                         == client.getVarpValue(VarPlayerID.COLLECTION_COUNT)) {
             automaticScan.totalObtained = client.getVarpValue(VarPlayerID.COLLECTION_COUNT);
-            log.info(
+            log.debug(
                     "Collection log scan ready: {} transmitted items, game total {}.",
                     automaticScan.items.size(),
                     automaticScan.totalObtained);
