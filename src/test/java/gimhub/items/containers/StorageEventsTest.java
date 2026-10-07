@@ -213,6 +213,40 @@ public class StorageEventsTest {
     }
 
     @Test
+    public void seedsTakenFromBoxFreeSlotsForNewSeedTypes() {
+        SeedBoxItems seeds = new SeedBoxItems();
+        seeds.onItemContainerChanged(
+                container(
+                        InventoryID.SEED_BOX,
+                        new Item(ItemID.POTATO_SEED, 3),
+                        new Item(ItemID.MARRENTILL_SEED, 10),
+                        new Item(ItemID.TARROMIN_SEED, 10),
+                        new Item(ItemID.HARRALANDER_SEED, 10),
+                        new Item(ItemID.RANARR_SEED, 10),
+                        new Item(ItemID.TOADFLAX_SEED, 10)),
+                itemManager);
+        seeds.onGameTick(client, itemManager);
+
+        chat(seeds, "3 Potato seed were taken from your seed box.");
+        seeds.onGameTick(client, itemManager);
+        chat(seeds, "You put the stolen Irit seed into your seed box.");
+        seeds.onGameTick(client, itemManager);
+        chat(seeds, "An Irit seed was taken from your seed box.");
+        chat(seeds, "You put the stolen Torstol seed into your seed box.");
+        seeds.onGameTick(client, itemManager);
+
+        assertEquals(
+                Map.of(
+                        ItemID.MARRENTILL_SEED, 10,
+                        ItemID.TARROMIN_SEED, 10,
+                        ItemID.HARRALANDER_SEED, 10,
+                        ItemID.RANARR_SEED, 10,
+                        ItemID.TOADFLAX_SEED, 10,
+                        ItemID.TORSTOL_SEED, 1),
+                pairs(seeds.get()));
+    }
+
+    @Test
     public void initializedEmptyInterfacesClearWithoutAnItemContainer() {
         LootingBagItems bag = new LootingBagItems();
         bag.onItemContainerChanged(container(InventoryID.LOOTING_BAG, new Item(ItemID.COINS, 10)), itemManager);

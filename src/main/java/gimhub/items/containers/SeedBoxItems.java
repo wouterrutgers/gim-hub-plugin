@@ -97,6 +97,8 @@ public class SeedBoxItems extends ContainerItems {
             Pattern.compile("The following stolen loot gets added to your seed box: (.+) x (\\d+)\\.");
     protected static final Pattern SINGLE = Pattern.compile("You put the stolen (.+) into your seed box\\.");
     protected static final Pattern REMOVE = Pattern.compile("Emptied (\\d+) x (.+) to your inventory\\.");
+    protected static final Pattern TAKEN =
+            Pattern.compile("(?:A|An|(\\d+)) (.+) (?:was|were) taken from your seed box\\.");
     protected final Map<Integer, Integer> changes = new HashMap<>();
 
     @Override
@@ -111,6 +113,7 @@ public class SeedBoxItems extends ContainerItems {
         Matcher stolen = STOLEN.matcher(message);
         Matcher single = SINGLE.matcher(message);
         Matcher remove = REMOVE.matcher(message);
+        Matcher taken = TAKEN.matcher(message);
         if (add.matches()) {
             change(add.group(2), Integer.parseInt(add.group(1)));
         } else if (stolen.matches()) {
@@ -119,6 +122,8 @@ public class SeedBoxItems extends ContainerItems {
             change(single.group(1), 1);
         } else if (remove.matches()) {
             change(remove.group(2), -Integer.parseInt(remove.group(1)));
+        } else if (taken.matches()) {
+            change(taken.group(2), taken.group(1) == null ? -1 : -Integer.parseInt(taken.group(1)));
         }
     }
 
