@@ -213,6 +213,39 @@ public class StorageEventsTest {
     }
 
     @Test
+    public void initialSeedSnapshotIncludesAccompanyingWithdrawals() {
+        SeedBoxItems seeds = new SeedBoxItems();
+        seeds.onItemContainerChanged(container(InventoryID.SEED_BOX, new Item(ItemID.RANARR_SEED, 7)), itemManager);
+        chat(seeds, "3 Ranarr seed were taken from your seed box.");
+        seeds.onGameTick(client, itemManager);
+        assertEquals(Map.of(ItemID.RANARR_SEED, 7), pairs(seeds.get()));
+    }
+
+    @Test
+    public void seedTransfersOnlyApplyQuantitiesMissingFromSnapshots() {
+        SeedBoxItems seeds = new SeedBoxItems();
+        seeds.onItemContainerChanged(container(InventoryID.SEED_BOX, new Item(ItemID.RANARR_SEED, 10)), itemManager);
+        seeds.onGameTick(client, itemManager);
+
+        seeds.onItemContainerChanged(container(InventoryID.SEED_BOX, new Item(ItemID.RANARR_SEED, 15)), itemManager);
+        chat(seeds, "Stored 5 x Ranarr seed in your seed box.");
+        chat(seeds, "Stored 5 x Ranarr seed in your seed box.");
+        seeds.onGameTick(client, itemManager);
+        assertEquals(Map.of(ItemID.RANARR_SEED, 20), pairs(seeds.get()));
+
+        seeds.onItemContainerChanged(container(InventoryID.SEED_BOX, new Item(ItemID.RANARR_SEED, 20)), itemManager);
+        chat(seeds, "3 Ranarr seed were taken from your seed box.");
+        seeds.onGameTick(client, itemManager);
+        assertEquals(Map.of(ItemID.RANARR_SEED, 17), pairs(seeds.get()));
+
+        seeds.onItemContainerChanged(container(InventoryID.SEED_BOX, new Item(ItemID.RANARR_SEED, 22)), itemManager);
+        seeds.onGameTick(client, itemManager);
+        chat(seeds, "Stored 5 x Ranarr seed in your seed box.");
+        seeds.onGameTick(client, itemManager);
+        assertEquals(Map.of(ItemID.RANARR_SEED, 27), pairs(seeds.get()));
+    }
+
+    @Test
     public void seedsTakenFromBoxFreeSlotsForNewSeedTypes() {
         SeedBoxItems seeds = new SeedBoxItems();
         seeds.onItemContainerChanged(

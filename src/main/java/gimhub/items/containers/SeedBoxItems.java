@@ -8,6 +8,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
+import net.runelite.api.ItemContainer;
 import net.runelite.api.events.ChatMessage;
 import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.gameval.InventoryID;
@@ -99,12 +100,31 @@ public class SeedBoxItems extends ContainerItems {
     protected static final Pattern REMOVE = Pattern.compile("Emptied (\\d+) x (.+) to your inventory\\.");
     protected static final Pattern TAKEN =
             Pattern.compile("(?:A|An|(\\d+)) (.+) (?:was|were) taken from your seed box\\.");
-    protected final Map<Integer, Integer> changes = new HashMap<>();
+    protected final Map<Integer, Integer> snapshotChanges = new HashMap<>();
+    protected boolean initialSnapshotThisTick;
+
+    @Override
+    public void onItemContainerChanged(ItemContainer container, ItemManager itemManager) {
+        if (container == null || container.getId() != inventoryId) {
+            super.onItemContainerChanged(container, itemManager);
+            return;
+        }
+        Map<Integer, Integer> previous = items == null ? null : items.getItemsQuantityByID();
+        super.onItemContainerChanged(container, itemManager);
+        if (previous == null) {
+            initialSnapshotThisTick = true;
+            return;
+        }
+        previous.forEach((itemId, quantity) -> snapshotChanges.merge(itemId, -quantity, Integer::sum));
+        items.getItemsQuantityByID()
+                .forEach((itemId, quantity) -> snapshotChanges.merge(itemId, quantity, Integer::sum));
+    }
 
     @Override
     public void onChatMessage(Client client, ChatMessage event, ItemManager itemManager) {
         super.onChatMessage(client, event, itemManager);
         if (items == null
+                || initialSnapshotThisTick
                 || (event.getType() != ChatMessageType.GAMEMESSAGE && event.getType() != ChatMessageType.SPAM)) {
             return;
         }
@@ -115,22 +135,31 @@ public class SeedBoxItems extends ContainerItems {
         Matcher remove = REMOVE.matcher(message);
         Matcher taken = TAKEN.matcher(message);
         if (add.matches()) {
-            change(add.group(2), Integer.parseInt(add.group(1)));
+            change(add.group(2), Integer.parseInt(add.group(1)), itemManager);
         } else if (stolen.matches()) {
-            change(stolen.group(1), Integer.parseInt(stolen.group(2)));
+            change(stolen.group(1), Integer.parseInt(stolen.group(2)), itemManager);
         } else if (single.matches()) {
-            change(single.group(1), 1);
+            change(single.group(1), 1, itemManager);
         } else if (remove.matches()) {
-            change(remove.group(2), -Integer.parseInt(remove.group(1)));
+            change(remove.group(2), -Integer.parseInt(remove.group(1)), itemManager);
         } else if (taken.matches()) {
-            change(taken.group(2), taken.group(1) == null ? -1 : -Integer.parseInt(taken.group(1)));
+            change(taken.group(2), taken.group(1) == null ? -1 : -Integer.parseInt(taken.group(1)), itemManager);
         }
     }
 
-    protected void change(String name, int quantity) {
+    protected void change(String name, int quantity, ItemManager itemManager) {
         Integer itemId = SEEDS.get(name.toLowerCase(Locale.ROOT));
         if (itemId != null) {
-            changes.merge(itemId, quantity, Integer::sum);
+            int snapshotQuantity = snapshotChanges.getOrDefault(itemId, 0);
+            if (Integer.signum(quantity) == Integer.signum(snapshotQuantity)) {
+                int includedQuantity =
+                        quantity > 0 ? Math.min(quantity, snapshotQuantity) : Math.max(quantity, snapshotQuantity);
+                snapshotChanges.put(itemId, snapshotQuantity - includedQuantity);
+                quantity -= includedQuantity;
+            }
+            Map<Integer, Integer> contents = new HashMap<>(items.getItemsQuantityByID());
+            contents.put(itemId, Math.max(0, contents.getOrDefault(itemId, 0) + quantity));
+            items = new gimhub.items.ItemsUnordered(contents, itemManager);
         }
     }
 
@@ -147,14 +176,8 @@ public class SeedBoxItems extends ContainerItems {
     public void onGameTick(Client client, ItemManager itemManager) {
         boolean inspect = pending || firstTick;
         super.onGameTick(client, itemManager);
-        if (!authoritativeUpdate && items != null && !changes.isEmpty()) {
-            Map<Integer, Integer> contents = new HashMap<>(items.getItemsQuantityByID());
-            changes.forEach((itemId, quantity) ->
-                    contents.put(itemId, Math.max(0, contents.getOrDefault(itemId, 0) + quantity)));
-            items = new gimhub.items.ItemsUnordered(contents, itemManager);
-        }
-        changes.clear();
-        authoritativeUpdate = false;
+        snapshotChanges.clear();
+        initialSnapshotThisTick = false;
         if (!inspect) {
             return;
         }
