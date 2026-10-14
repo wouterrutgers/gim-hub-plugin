@@ -1,14 +1,16 @@
 package gimhub.items.containers;
 
+import gimhub.items.ItemsUnordered;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
-import net.runelite.api.ItemContainer;
 import net.runelite.api.events.ChatMessage;
 import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.gameval.InventoryID;
@@ -53,8 +55,11 @@ public class SeedBoxItems extends ContainerItems {
             Map.entry("asgarnian seed", ItemID.ASGARNIAN_HOP_SEED),
             Map.entry("jute seed", ItemID.JUTE_SEED),
             Map.entry("yanillian seed", ItemID.YANILLIAN_HOP_SEED),
+            Map.entry("flax seed", ItemID.FLAX_SEED),
             Map.entry("krandorian seed", ItemID.KRANDORIAN_HOP_SEED),
             Map.entry("wildblood seed", ItemID.WILDBLOOD_HOP_SEED),
+            Map.entry("hemp seed", ItemID.HEMP_SEED),
+            Map.entry("cotton seed", ItemID.COTTON_SEED),
             Map.entry("redberry seed", ItemID.REDBERRY_BUSH_SEED),
             Map.entry("cadavaberry seed", ItemID.CADAVABERRY_BUSH_SEED),
             Map.entry("dwellberry seed", ItemID.DWELLBERRY_BUSH_SEED),
@@ -79,11 +84,17 @@ public class SeedBoxItems extends ContainerItems {
             Map.entry("mushroom spore", ItemID.MUSHROOM_SEED),
             Map.entry("belladonna seed", ItemID.BELLADONNA_SEED),
             Map.entry("hespori seed", ItemID.HESPORI_SEED),
+            Map.entry("elkhorn frag", ItemID.CORAL_ELKHORN_FRAG),
+            Map.entry("pillar frag", ItemID.CORAL_PILLAR_FRAG),
+            Map.entry("umbral frag", ItemID.CORAL_UMBRAL_FRAG),
             Map.entry("kronos seed", ItemID.KRONOS_SEED),
             Map.entry("iasor seed", ItemID.IASOR_SEED),
             Map.entry("attas seed", ItemID.ATTAS_SEED),
             Map.entry("teak seed", ItemID.TEAK_SEED),
             Map.entry("mahogany seed", ItemID.MAHOGANY_SEED),
+            Map.entry("camphor seed", ItemID.CAMPHOR_SEED),
+            Map.entry("ironwood seed", ItemID.IRONWOOD_SEED),
+            Map.entry("rosewood seed", ItemID.ROSEWOOD_SEED),
             Map.entry("calquat tree seed", ItemID.CALQUAT_TREE_SEED),
             Map.entry("crystal acorn", ItemID.CRYSTAL_TREE_SEED),
             Map.entry("spirit seed", ItemID.SPIRIT_TREE_SEED),
@@ -99,36 +110,35 @@ public class SeedBoxItems extends ContainerItems {
     protected static final Pattern SINGLE = Pattern.compile("You put the stolen (.+) into your seed box\\.");
     protected static final Pattern REMOVE = Pattern.compile("Emptied (\\d+) x (.+) to your inventory\\.");
     protected static final Pattern TAKEN =
-            Pattern.compile("(?:A|An|(\\d+)) (.+) (?:was|were) taken from your seed box\\.");
+            Pattern.compile("(?:A|An|(\\d+)) (.+?)s? (?:was|were) taken from your seed box\\.");
+    protected static final Pattern EMPTY = Pattern.compile("(?:The|Your) seed box is(?: now| already)? empty\\.");
+    protected static final String EMPTY_INTO_BANK = "You empty all of your containers into the bank.";
+    protected final List<String> messages = new ArrayList<>();
     protected final Map<Integer, Integer> snapshotChanges = new HashMap<>();
-    protected boolean initialSnapshotThisTick;
-
-    @Override
-    public void onItemContainerChanged(ItemContainer container, ItemManager itemManager) {
-        if (container == null || container.getId() != inventoryId) {
-            super.onItemContainerChanged(container, itemManager);
-            return;
-        }
-        Map<Integer, Integer> previous = items == null ? null : items.getItemsQuantityByID();
-        super.onItemContainerChanged(container, itemManager);
-        if (previous == null) {
-            initialSnapshotThisTick = true;
-            return;
-        }
-        previous.forEach((itemId, quantity) -> snapshotChanges.merge(itemId, -quantity, Integer::sum));
-        items.getItemsQuantityByID()
-                .forEach((itemId, quantity) -> snapshotChanges.merge(itemId, quantity, Integer::sum));
-    }
+    protected ItemsUnordered previousTickItems;
 
     @Override
     public void onChatMessage(Client client, ChatMessage event, ItemManager itemManager) {
+        boolean emptiedIntoBank = depositing
+                && event.getType() == ChatMessageType.GAMEMESSAGE
+                && event.getMessage().equals(EMPTY_INTO_BANK);
         super.onChatMessage(client, event, itemManager);
-        if (items == null
-                || initialSnapshotThisTick
-                || (event.getType() != ChatMessageType.GAMEMESSAGE && event.getType() != ChatMessageType.SPAM)) {
+        if (emptiedIntoBank) {
+            messages.clear();
+            messages.add(event.getMessage());
             return;
         }
-        String message = Text.removeTags(event.getMessage());
+        if ((event.getType() != ChatMessageType.GAMEMESSAGE && event.getType() != ChatMessageType.SPAM)
+                || event.getMessage().equals(EMPTY_INTO_BANK)) {
+            return;
+        }
+        messages.add(Text.removeTags(event.getMessage()));
+    }
+
+    protected void processMessage(String message, ItemManager itemManager) {
+        if (items == null) {
+            return;
+        }
         Matcher add = ADD.matcher(message);
         Matcher stolen = STOLEN.matcher(message);
         Matcher single = SINGLE.matcher(message);
@@ -136,13 +146,21 @@ public class SeedBoxItems extends ContainerItems {
         Matcher taken = TAKEN.matcher(message);
         if (add.matches()) {
             change(add.group(2), Integer.parseInt(add.group(1)), itemManager);
-        } else if (stolen.matches()) {
+            return;
+        }
+        if (stolen.matches()) {
             change(stolen.group(1), Integer.parseInt(stolen.group(2)), itemManager);
-        } else if (single.matches()) {
+            return;
+        }
+        if (single.matches()) {
             change(single.group(1), 1, itemManager);
-        } else if (remove.matches()) {
+            return;
+        }
+        if (remove.matches()) {
             change(remove.group(2), -Integer.parseInt(remove.group(1)), itemManager);
-        } else if (taken.matches()) {
+            return;
+        }
+        if (taken.matches()) {
             change(taken.group(2), taken.group(1) == null ? -1 : -Integer.parseInt(taken.group(1)), itemManager);
         }
     }
@@ -159,7 +177,7 @@ public class SeedBoxItems extends ContainerItems {
             }
             Map<Integer, Integer> contents = new HashMap<>(items.getItemsQuantityByID());
             contents.put(itemId, Math.max(0, contents.getOrDefault(itemId, 0) + quantity));
-            items = new gimhub.items.ItemsUnordered(contents, itemManager);
+            items = new ItemsUnordered(contents, itemManager);
         }
     }
 
@@ -176,18 +194,43 @@ public class SeedBoxItems extends ContainerItems {
     public void onGameTick(Client client, ItemManager itemManager) {
         boolean inspect = pending || firstTick;
         super.onGameTick(client, itemManager);
+        if (inspect) {
+            Widget widget = client.getWidget(InterfaceID.HosidiusSeedbox.SEED_LAYER);
+            if (widget != null
+                    && widget.getChildren() != null
+                    && widget.getChildren().length == 6
+                    && Arrays.stream(widget.getChildren())
+                            .allMatch(child -> child != null && child.getItemId() == -1)) {
+                items = new ItemsUnordered();
+                authoritativeUpdate = true;
+                pending = false;
+            }
+        }
+
+        if (authoritativeUpdate && previousTickItems != null) {
+            previousTickItems
+                    .getItemsQuantityByID()
+                    .forEach((itemId, quantity) -> snapshotChanges.merge(itemId, -quantity, Integer::sum));
+            items.getItemsQuantityByID()
+                    .forEach((itemId, quantity) -> snapshotChanges.merge(itemId, quantity, Integer::sum));
+        }
+
+        boolean replayTransfers = !authoritativeUpdate || previousTickItems != null;
+        for (String message : messages) {
+            if (EMPTY.matcher(message).matches() || message.equals(EMPTY_INTO_BANK)) {
+                items = new ItemsUnordered();
+                snapshotChanges.clear();
+                replayTransfers = true;
+                continue;
+            }
+            if (!replayTransfers) {
+                continue;
+            }
+            processMessage(message, itemManager);
+        }
+        messages.clear();
         snapshotChanges.clear();
-        initialSnapshotThisTick = false;
-        if (!inspect) {
-            return;
-        }
-        Widget widget = client.getWidget(InterfaceID.HosidiusSeedbox.SEED_LAYER);
-        if (widget != null
-                && widget.getChildren() != null
-                && widget.getChildren().length == 6
-                && Arrays.stream(widget.getChildren()).allMatch(child -> child != null && child.getItemId() == -1)) {
-            items = new gimhub.items.ItemsUnordered();
-            pending = false;
-        }
+        authoritativeUpdate = false;
+        previousTickItems = items;
     }
 }
