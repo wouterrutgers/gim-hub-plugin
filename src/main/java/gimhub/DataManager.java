@@ -27,7 +27,7 @@ import net.runelite.client.config.RuneScapeProfileType;
 public class DataManager {
     // Managed by the Client thread
 
-    private PlayerState state = null;
+    private volatile PlayerState state = null;
 
     @Getter
     private volatile String activePlayerName;
@@ -55,10 +55,12 @@ public class DataManager {
         public final String ownedPlayer;
         public final RuneScapeProfileType ownedProfileType;
         public final long accountHash;
+        public final String groupContext;
         public final ActivityRepository activityRepository;
         public final ItemRepository itemRepository;
         public final AchievementRepository achievementRepository;
         public final CollectionLogManager collectionLogManager;
+        public final ActivityTimeline activityTimeline;
 
         private FlatState flatten() {
             Map<String, APISerializable> flat = new HashMap<>();
@@ -70,13 +72,15 @@ public class DataManager {
             itemRepository.flatten(flat);
             achievementRepository.flatten(flat);
             collectionLogManager.flatten(flat);
+            activityTimeline.flatten(flat);
 
             flat.entrySet().removeIf(e -> e.getValue() == null);
 
-            return new FlatState(ownedPlayer, ownedProfileType, flat);
+            return new FlatState(ownedPlayer, ownedProfileType, groupContext, flat);
         }
 
-        PlayerState(String ownedPlayer, RuneScapeProfileType ownedProfileType, long accountHash) {
+        PlayerState(String ownedPlayer, RuneScapeProfileType ownedProfileType, long accountHash, String groupContext) {
+            this.groupContext = groupContext;
             this.accountHash = accountHash;
             this.ownedPlayer = ownedPlayer;
             this.ownedProfileType = ownedProfileType;
@@ -84,6 +88,7 @@ public class DataManager {
             this.itemRepository = new ItemRepository();
             this.achievementRepository = new AchievementRepository();
             this.collectionLogManager = new CollectionLogManager();
+            this.activityTimeline = collectionLogManager.activityTimeline;
         }
     }
 
@@ -93,32 +98,42 @@ public class DataManager {
         private final String ownedPlayer;
 
         private final RuneScapeProfileType ownedProfileType;
+        private final String groupContext;
         private final Map<String, APISerializable> fields;
 
         private boolean hasDifferentOwner(FlatState other) {
-            return !ownedPlayer.equals(other.ownedPlayer) || ownedProfileType != other.ownedProfileType;
+            return !ownedPlayer.equals(other.ownedPlayer)
+                    || ownedProfileType != other.ownedProfileType
+                    || !groupContext.equals(other.groupContext);
         }
 
         public static FlatState combineWithPriority(FlatState priority, FlatState defaults) {
             if (priority.hasDifferentOwner(defaults)) {
-                return new FlatState(priority.ownedPlayer, priority.ownedProfileType, new HashMap<>(priority.fields));
+                return new FlatState(
+                        priority.ownedPlayer,
+                        priority.ownedProfileType,
+                        priority.groupContext,
+                        new HashMap<>(priority.fields));
             }
 
             Map<String, APISerializable> mergedFields = new HashMap<>(defaults.fields);
             priority.fields.forEach((key, value) -> {
-                if (key.equals("collection_log_updates")) {
+                if (key.equals("activity_updates")) {
+                    mergedFields.merge(key, value, ActivityUpdates::combine);
+                } else if (key.equals("collection_log_updates")) {
                     mergedFields.merge(key, value, CollectionLogUpdates::combine);
                 } else {
                     mergedFields.put(key, value);
                 }
             });
 
-            return new FlatState(priority.ownedPlayer, priority.ownedProfileType, mergedFields);
+            return new FlatState(priority.ownedPlayer, priority.ownedProfileType, priority.groupContext, mergedFields);
         }
 
         public static FlatState diffKeepChangedFields(FlatState newer, FlatState older) {
             if (newer.hasDifferentOwner(older)) {
-                return new FlatState(newer.ownedPlayer, newer.ownedProfileType, new HashMap<>(newer.fields));
+                return new FlatState(
+                        newer.ownedPlayer, newer.ownedProfileType, newer.groupContext, new HashMap<>(newer.fields));
             }
 
             Map<String, APISerializable> fieldsThatChanged = new HashMap<>(newer.fields);
@@ -139,7 +154,7 @@ public class DataManager {
                 }
             }
 
-            return new FlatState(newer.ownedPlayer, newer.ownedProfileType, fieldsThatChanged);
+            return new FlatState(newer.ownedPlayer, newer.ownedProfileType, newer.groupContext, fieldsThatChanged);
         }
 
         public boolean hasChangesBeyondBaseline() {
@@ -151,7 +166,12 @@ public class DataManager {
                     .collect(Collectors.toMap(Entry::getKey, e -> e.getValue().serialize()));
         }
 
-        FlatState(String player, RuneScapeProfileType ownedProfileType, Map<String, APISerializable> fields) {
+        FlatState(
+                String player,
+                RuneScapeProfileType ownedProfileType,
+                String groupContext,
+                Map<String, APISerializable> fields) {
+            this.groupContext = groupContext;
             this.ownedPlayer = player;
             this.ownedProfileType = ownedProfileType;
             this.fields = fields;
@@ -171,17 +191,22 @@ public class DataManager {
                 && client.getLocalPlayer() != null
                 && client.getLocalPlayer().getName() != null;
 
-        if (!isValidPlayerLoggedIn || !isSupportedProfile(profileType)) {
+        if (!isValidPlayerLoggedIn
+                || !isSupportedProfile(profileType)
+                || config.groupName().trim().isEmpty()
+                || config.authorizationToken().trim().isEmpty()) {
             return null;
         }
 
         final String player = client.getLocalPlayer().getName();
+        final String groupContext = configuredGroupContext();
         if (state == null
                 || !state.ownedPlayer.equals(player)
                 || state.ownedProfileType != profileType
-                || state.accountHash != client.getAccountHash()) {
+                || state.accountHash != client.getAccountHash()
+                || !state.groupContext.equals(groupContext)) {
             reset();
-            state = new PlayerState(player, profileType, client.getAccountHash());
+            state = new PlayerState(player, profileType, client.getAccountHash(), groupContext);
         }
 
         activePlayerName = player;
@@ -204,6 +229,11 @@ public class DataManager {
     public void onGameStateChanged(GameStateChanged event) {
         if (event.getGameState() == GameState.LOGIN_SCREEN) {
             activePlayerName = null;
+            if (state != null) {
+                state.activityTimeline.resetBaselines();
+                state.achievementRepository.quests = null;
+                state.achievementRepository.diaries = null;
+            }
         }
         if (state != null) {
             state.collectionLogManager.onGameStateChanged(event);
@@ -279,6 +309,8 @@ public class DataManager {
             if (flat == null || !flat.ownedPlayer.equals(playerName)) return;
         }
 
+        if (!flat.groupContext.equals(configuredGroupContext())) return;
+
         Map<String, Object> updates = flat.serialize();
 
         if (!flat.hasChangesBeyondBaseline()) {
@@ -286,11 +318,19 @@ public class DataManager {
             return;
         }
 
+        PlayerState submittingState = state;
         HttpRequestService.HttpResponse response = httpRequestService.post(url, groupToken, updates);
+        if (response.isSuccessful() && submittingState != null && flat.fields.containsKey("activity_updates")) {
+            submittingState.activityTimeline.acknowledge((ActivityUpdates) flat.fields.get("activity_updates"));
+        }
 
         if (response.getCode() == 422) {
             isMemberInGroup = false;
         }
+    }
+
+    private String configuredGroupContext() {
+        return String.join("\n", config.groupName(), config.authorizationToken(), config.baseUrlOverride());
     }
 
     private boolean fetchIsMember(String groupToken, String playerName) {

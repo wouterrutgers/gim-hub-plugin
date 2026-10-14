@@ -62,7 +62,9 @@ public class CollectionLogManager {
             "Medallion fragment",
             "Crawling hand");
 
-    private static final int UNLOCK_MATCH_TICKS = 10;
+    public final ActivityTimeline activityTimeline = new ActivityTimeline();
+
+    static final int UNLOCK_MATCH_TICKS = 10;
     private final List<PendingUpdate> pendingUpdates = new ArrayList<>();
     private final Map<Integer, Integer> recentDropTicks = new HashMap<>();
     private final Set<Integer> notifiedItems = new HashSet<>();
@@ -116,6 +118,9 @@ public class CollectionLogManager {
             if (update.awaitingChambersLoot
                     || (update.type.equals("unlock") && currentTick <= update.tick + UNLOCK_MATCH_TICKS)) break;
             if (!update.items.isEmpty() || update.totalObtained != null) {
+                if (update.type.equals("unlock")) {
+                    for (int identifier : update.items.keySet()) activityTimeline.collectionItem(identifier);
+                }
                 ready.add(new CollectionLogUpdates.Update(update.type, update.items, update.totalObtained));
             }
             iterator.remove();
@@ -128,6 +133,7 @@ public class CollectionLogManager {
                 && event.getType() != LootRecordType.EVENT
                 && event.getType() != LootRecordType.PICKPOCKET) return;
         if (event.getName().equals("Loot Chest")) return;
+        activityTimeline.onLootReceived(client, event, itemManager);
         currentTick = client.getTickCount();
 
         Map<Integer, Integer> items = new LinkedHashMap<>();
@@ -160,6 +166,7 @@ public class CollectionLogManager {
             if (update.type.equals("unlock")
                     && update.items.containsKey(itemIdentifier)
                     && (update.awaitingChambersLoot ? chambersLoot : currentTick <= update.tick + UNLOCK_MATCH_TICKS)) {
+                activityTimeline.markCollectionItem(itemIdentifier);
                 matchedUnlock = true;
                 iterator.remove();
             } else if (matchedUnlock
@@ -192,6 +199,7 @@ public class CollectionLogManager {
 
     public synchronized void onGameTick(Client client) {
         currentTick = client.getTickCount();
+        activityTimeline.onGameTick(currentTick);
         recentDropTicks.values().removeIf(tick -> currentTick > tick + UNLOCK_MATCH_TICKS);
         if (collectionLogTransmitTick == -1
                 || collectionLogTransmitTick + COLLECTION_LOG_TRANSMIT_BUFFER_TICKS >= client.getTickCount()) {
@@ -289,6 +297,7 @@ public class CollectionLogManager {
     }
 
     public void onChatMessage(Client client, ChatMessage event, CollectionLogItemResolver collectionLogItemResolver) {
+        activityTimeline.onChatMessage(event);
         currentTick = client.getTickCount();
         if (event.getType() != ChatMessageType.GAMEMESSAGE
                 || client.getVarbitValue(VarbitID.OPTION_COLLECTION_NEW_ITEM) != 1) {
@@ -315,6 +324,7 @@ public class CollectionLogManager {
         }
 
         if (!notifiedItems.add(itemIdentifier)) return;
+        activityTimeline.markCollectionItem(itemIdentifier);
         if (recentDropTicks.containsKey(itemIdentifier)
                 && currentTick <= recentDropTicks.get(itemIdentifier) + UNLOCK_MATCH_TICKS) return;
         PendingUpdate update = new PendingUpdate("unlock", Map.of(itemIdentifier, 1), currentTick);

@@ -36,6 +36,7 @@ public class DiariesProgress implements APISerializable {
     private static final List<Integer> diaryVarbitIDsInAPIOrder =
             Arrays.stream(DIARY_VARBITS).flatMap(Arrays::stream).collect(Collectors.toUnmodifiableList());
 
+    @lombok.Getter
     private final ArrayList<Integer> diaryVarValues;
 
     public DiariesProgress(Client client) {

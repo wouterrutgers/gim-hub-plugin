@@ -70,6 +70,7 @@ public class DataManagerTest {
         when(client.getWorldType()).thenReturn(EnumSet.noneOf(WorldType.class));
         when(client.getLocalPlayer()).thenReturn(player);
         when(player.getName()).thenReturn("Player one");
+        when(configuration.groupName()).thenReturn("Test group");
         when(configuration.authorizationToken()).thenReturn(" group-token ");
         when(apiUrlBuilder.getMembershipCheckUrl("Player one")).thenReturn("https://gim-hub.test/membership");
         when(apiUrlBuilder.getUpdateGroupMemberUrl()).thenReturn("https://gim-hub.test/update");
@@ -400,6 +401,46 @@ public class DataManagerTest {
         assertEquals(1, updates.size());
         assertEquals(
                 List.of(Map.of("item_id", 4151, "quantity", 4)), updates.get(0).get("items"));
+    }
+
+    @Test
+    public void retriesTimelineUpdatesWithTheSameIdentityAfterAFailedUpload() {
+        DataManager.PlayerState state = dataManager.getMaybeResetState(client);
+        state.activityTimeline.trackExperience(net.runelite.api.Skill.ATTACK, 1000, 10, 1000);
+        state.activityTimeline.trackExperience(net.runelite.api.Skill.ATTACK, 1100, 10, 2000);
+        when(httpRequestService.post(eq("https://gim-hub.test/update"), eq("group-token"), anyMap()))
+                .thenReturn(response(false, 500), response(true, 200));
+        dataManager.stageForSubmitToAPI();
+        dataManager.submitToApi("Player one");
+        dataManager.stageForSubmitToAPI();
+        dataManager.submitToApi("Player one");
+        dataManager.stageForSubmitToAPI();
+        dataManager.submitToApi("Player one");
+        ArgumentCaptor<Map<String, Object>> payloads = ArgumentCaptor.forClass(Map.class);
+        verify(httpRequestService, times(2))
+                .post(eq("https://gim-hub.test/update"), eq("group-token"), payloads.capture());
+        assertEquals(
+                payloads.getAllValues().get(0).get("activity_updates"),
+                payloads.getAllValues().get(1).get("activity_updates"));
+    }
+
+    @Test
+    public void groupChangesNeverUploadEventsCapturedForThePreviousGroup() throws ReflectiveOperationException {
+        GimHubConfig configuration = (GimHubConfig) getField(dataManager, "config");
+        when(configuration.groupName()).thenReturn("First group");
+        DataManager.PlayerState state = dataManager.getMaybeResetState(client);
+        state.activityTimeline.trackBoss("Vorkath", "kill", 100, 1000);
+        dataManager.stageForSubmitToAPI();
+        when(configuration.groupName()).thenReturn("Second group");
+        dataManager.submitToApi("Player one");
+        verify(httpRequestService, never()).post(eq("https://gim-hub.test/update"), eq("group-token"), anyMap());
+        DataManager.PlayerState next = dataManager.getMaybeResetState(client);
+        next.activityRepository.updateResources(client);
+        dataManager.stageForSubmitToAPI();
+        dataManager.submitToApi("Player one");
+        ArgumentCaptor<Map<String, Object>> payload = ArgumentCaptor.forClass(Map.class);
+        verify(httpRequestService).post(eq("https://gim-hub.test/update"), eq("group-token"), payload.capture());
+        assertFalse(payload.getValue().containsKey("activity_updates"));
     }
 
     private void drop(DataManager.PlayerState state) {

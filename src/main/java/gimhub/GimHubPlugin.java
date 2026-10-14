@@ -42,6 +42,15 @@ public class GimHubPlugin extends Plugin {
     @Override
     protected void startUp() throws Exception {
         log.info("GIM hub started!");
+        clientThread.invoke(() -> {
+            PlayerState state = dataManager.getMaybeResetState(client);
+            if (state != null) {
+                state.activityTimeline.initialize(client);
+                state.achievementRepository.update(client);
+                state.activityTimeline.achievements(
+                        state.achievementRepository.quests, state.achievementRepository.diaries);
+            }
+        });
     }
 
     @Override
@@ -64,6 +73,8 @@ public class GimHubPlugin extends Plugin {
             PlayerState state = dataManager.getMaybeResetState(client);
             if (state != null) {
                 state.achievementRepository.update(client);
+                state.activityTimeline.achievements(
+                        state.achievementRepository.quests, state.achievementRepository.diaries);
             }
         });
     }
@@ -85,6 +96,12 @@ public class GimHubPlugin extends Plugin {
         PlayerState state = dataManager.getMaybeResetState(client);
         if (state == null) return;
 
+        state.activityTimeline.initialize(client);
+        if (state.achievementRepository.quests == null) {
+            state.achievementRepository.update(client);
+            state.activityTimeline.achievements(
+                    state.achievementRepository.quests, state.achievementRepository.diaries);
+        }
         state.activityRepository.updateInteracting(client);
         state.activityRepository.updateResources(client);
         state.activityRepository.updateLocation(client);
@@ -121,6 +138,7 @@ public class GimHubPlugin extends Plugin {
         if (state == null) return;
 
         state.itemRepository.onStatChanged(event, itemManager);
+        state.activityTimeline.onStatChanged(client, event);
         state.activityRepository.updateSkills(client);
     }
 
