@@ -7,6 +7,7 @@ import net.runelite.api.Client;
 import net.runelite.api.Quest;
 
 public class QuestsProgress implements APISerializable {
+    @lombok.Getter
     private final Map<Integer, net.runelite.api.QuestState> questStateMap;
 
     private static final List<Integer> sortedQuestIDs =

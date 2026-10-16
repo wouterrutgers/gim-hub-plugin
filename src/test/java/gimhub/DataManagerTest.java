@@ -6,8 +6,10 @@ import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -31,13 +33,18 @@ import net.runelite.api.Item;
 import net.runelite.api.ItemComposition;
 import net.runelite.api.ItemContainer;
 import net.runelite.api.Player;
+import net.runelite.api.Quest;
+import net.runelite.api.ScriptID;
 import net.runelite.api.WorldType;
 import net.runelite.api.WorldView;
 import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.ChatMessage;
 import net.runelite.api.events.GameStateChanged;
+import net.runelite.api.events.GameTick;
+import net.runelite.api.events.VarbitChanged;
 import net.runelite.api.gameval.InventoryID;
+import net.runelite.api.gameval.VarPlayerID;
 import net.runelite.api.gameval.VarbitID;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.game.ItemStack;
@@ -70,6 +77,7 @@ public class DataManagerTest {
         when(client.getWorldType()).thenReturn(EnumSet.noneOf(WorldType.class));
         when(client.getLocalPlayer()).thenReturn(player);
         when(player.getName()).thenReturn("Player one");
+        when(configuration.groupName()).thenReturn("Test group");
         when(configuration.authorizationToken()).thenReturn(" group-token ");
         when(apiUrlBuilder.getMembershipCheckUrl("Player one")).thenReturn("https://gim-hub.test/membership");
         when(apiUrlBuilder.getUpdateGroupMemberUrl()).thenReturn("https://gim-hub.test/update");
@@ -400,6 +408,102 @@ public class DataManagerTest {
         assertEquals(1, updates.size());
         assertEquals(
                 List.of(Map.of("item_id", 4151, "quantity", 4)), updates.get(0).get("items"));
+    }
+
+    @Test
+    public void retriesTimelineUpdatesWithTheSameIdentityAfterAFailedUpload() {
+        DataManager.PlayerState state = dataManager.getMaybeResetState(client);
+        state.activityTimeline.trackExperience(net.runelite.api.Skill.ATTACK, 1000, 10, 1000);
+        state.activityTimeline.trackExperience(net.runelite.api.Skill.ATTACK, 1100, 10, 2000);
+        when(httpRequestService.post(eq("https://gim-hub.test/update"), eq("group-token"), anyMap()))
+                .thenReturn(response(false, 500), response(true, 200));
+        dataManager.stageForSubmitToAPI();
+        dataManager.submitToApi("Player one");
+        dataManager.stageForSubmitToAPI();
+        dataManager.submitToApi("Player one");
+        dataManager.stageForSubmitToAPI();
+        dataManager.submitToApi("Player one");
+        ArgumentCaptor<Map<String, Object>> payloads = ArgumentCaptor.forClass(Map.class);
+        verify(httpRequestService, times(2))
+                .post(eq("https://gim-hub.test/update"), eq("group-token"), payloads.capture());
+        assertEquals(
+                payloads.getAllValues().get(0).get("activity_updates"),
+                payloads.getAllValues().get(1).get("activity_updates"));
+    }
+
+    @Test
+    public void achievementsCompletedBeforeTheNextPollSurviveLogout() throws ReflectiveOperationException {
+        GimHubPlugin plugin = new GimHubPlugin();
+        setField(plugin, "client", client);
+        setField(plugin, "dataManager", dataManager);
+        ItemManager itemManager = mock(ItemManager.class);
+        doReturn(mock(ItemComposition.class)).when(itemManager).getItemComposition(ArgumentMatchers.anyInt());
+        setField(plugin, "itemManager", itemManager);
+        WorldView worldView = mock(WorldView.class);
+        when(worldView.getId()).thenReturn(WorldView.TOPLEVEL);
+        when(client.getWorldView(WorldView.TOPLEVEL)).thenReturn(worldView);
+        when(client.getTopLevelWorldView()).thenReturn(worldView);
+        when(player.getWorldView()).thenReturn(worldView);
+        doReturn(new LocalPoint(128, 128, worldView)).when(player).getLocalLocation();
+        doReturn(mock(EnumComposition.class)).when(client).getEnum(ArgumentMatchers.anyInt());
+        when(client.getVarbitValue(VarbitID.FARMING_TOOLS_WATERINGCAN)).thenReturn(-1);
+        int[] questState = {1};
+        when(client.getIntStack()).thenReturn(questState);
+        plugin.onGameTick(new GameTick());
+
+        doAnswer(invocation -> {
+                    questState[0] = invocation.getArgument(1).equals(Quest.COOKS_ASSISTANT.getId()) ? 2 : 1;
+                    return null;
+                })
+                .when(client)
+                .runScript(eq(ScriptID.QUEST_STATUS_GET), any());
+        when(client.getVarpValue(VarPlayerID.LUMB_DRAY_ACHIEVEMENT_DIARY)).thenReturn(1);
+        VarbitChanged questChanged = new VarbitChanged();
+        questChanged.setVarpId(VarPlayerID.COOKQUEST);
+        plugin.onVarbitChanged(questChanged);
+        VarbitChanged diaryChanged = new VarbitChanged();
+        diaryChanged.setVarpId(VarPlayerID.LUMB_DRAY_ACHIEVEMENT_DIARY);
+        plugin.onVarbitChanged(diaryChanged);
+        plugin.onGameTick(new GameTick());
+
+        when(client.getGameState()).thenReturn(GameState.LOGIN_SCREEN);
+        GameStateChanged logout = new GameStateChanged();
+        logout.setGameState(GameState.LOGIN_SCREEN);
+        dataManager.onGameStateChanged(logout);
+        when(client.getGameState()).thenReturn(GameState.LOGGED_IN);
+        plugin.onGameTick(new GameTick());
+        dataManager.submitToApi("Player one");
+
+        ArgumentCaptor<Map<String, Object>> payload = ArgumentCaptor.forClass(Map.class);
+        verify(httpRequestService).post(eq("https://gim-hub.test/update"), eq("group-token"), payload.capture());
+        assertTrue(payload.getValue().containsKey("activity_updates"));
+        List<Map<String, Object>> updates =
+                (List<Map<String, Object>>) payload.getValue().get("activity_updates");
+        assertEquals(2, updates.size());
+        assertEquals("quest", updates.get(0).get("type"));
+        assertEquals(
+                Map.of("quest_id", Quest.COOKS_ASSISTANT.getId(), "quest_name", Quest.COOKS_ASSISTANT.getName()),
+                updates.get(0).get("data"));
+        assertEquals("diary", updates.get(1).get("type"));
+    }
+
+    @Test
+    public void groupChangesNeverUploadEventsCapturedForThePreviousGroup() throws ReflectiveOperationException {
+        GimHubConfig configuration = (GimHubConfig) getField(dataManager, "config");
+        when(configuration.groupName()).thenReturn("First group");
+        DataManager.PlayerState state = dataManager.getMaybeResetState(client);
+        state.activityTimeline.trackBoss("Vorkath", "kill", 100, 1000);
+        dataManager.stageForSubmitToAPI();
+        when(configuration.groupName()).thenReturn("Second group");
+        dataManager.submitToApi("Player one");
+        verify(httpRequestService, never()).post(eq("https://gim-hub.test/update"), eq("group-token"), anyMap());
+        DataManager.PlayerState next = dataManager.getMaybeResetState(client);
+        next.activityRepository.updateResources(client);
+        dataManager.stageForSubmitToAPI();
+        dataManager.submitToApi("Player one");
+        ArgumentCaptor<Map<String, Object>> payload = ArgumentCaptor.forClass(Map.class);
+        verify(httpRequestService).post(eq("https://gim-hub.test/update"), eq("group-token"), payload.capture());
+        assertFalse(payload.getValue().containsKey("activity_updates"));
     }
 
     private void drop(DataManager.PlayerState state) {
