@@ -87,6 +87,7 @@ public class GimHubPlugin extends Plugin {
         final int varpId = event.getVarpId();
         final int varbitId = event.getVarbitId();
 
+        state.achievementRepository.quests = null;
         state.collectionLogManager.onVarbitChanged(client, event);
         state.itemRepository.onVarbitChanged(client, varpId, varbitId, itemManager);
     }

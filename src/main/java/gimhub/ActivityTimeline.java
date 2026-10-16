@@ -27,8 +27,8 @@ import net.runelite.http.api.loottracker.LootRecordType;
 public class ActivityTimeline {
     private static final long TRAINING_PAUSE = 15 * 60 * 1000;
     private static final long BOSS_PAUSE = 30 * 60 * 1000;
-    private static final Pattern KILL_COUNT =
-            Pattern.compile("Your (.+?) (kill|chest|completion) count is:? ([0-9,]+)", Pattern.CASE_INSENSITIVE);
+    private static final Pattern KILL_COUNT = Pattern.compile(
+            "Your (?:(.+?) (kill|chest|completion)|completed (.+?)) count is:? ([0-9,]+)", Pattern.CASE_INSENSITIVE);
     private final Map<Skill, Integer> experience = new EnumMap<>(Skill.class);
     private final Map<Skill, Integer> levels = new EnumMap<>(Skill.class);
     private final Map<String, Entry> pending = new LinkedHashMap<>();
@@ -124,9 +124,9 @@ public class ActivityTimeline {
         Matcher matcher = KILL_COUNT.matcher(Text.removeTags(event.getMessage()));
         if (!matcher.find()) return;
         trackBoss(
-                matcher.group(1),
-                matcher.group(2).toLowerCase(java.util.Locale.ROOT),
-                Integer.parseInt(matcher.group(3).replace(",", "")),
+                matcher.group(1) == null ? matcher.group(3) : matcher.group(1),
+                matcher.group(2) == null ? "completion" : matcher.group(2).toLowerCase(java.util.Locale.ROOT),
+                Integer.parseInt(matcher.group(4).replace(",", "")),
                 System.currentTimeMillis());
     }
 

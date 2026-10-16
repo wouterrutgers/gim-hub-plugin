@@ -6,8 +6,10 @@ import static org.mockito.Mockito.*;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
 import net.runelite.api.Skill;
+import net.runelite.api.events.ChatMessage;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.game.ItemStack;
 import net.runelite.client.plugins.loottracker.LootReceived;
@@ -63,6 +65,25 @@ public class ActivityTimelineTest {
         timeline.trackBoss("Vorkath", "kill", 103, 3000 + 30 * 60 * 1000);
         assertNotEquals(
                 first.updates.get(0).get("id"), ready(timeline).updates.get(0).get("id"));
+    }
+
+    @Test
+    public void completedRaidChatCreatesBossActivity() {
+        ActivityTimeline timeline = new ActivityTimeline();
+        timeline.onChatMessage(new ChatMessage(
+                null,
+                ChatMessageType.GAMEMESSAGE,
+                "",
+                "Your completed Chambers of Xeric count is: <col=ff0000>1,234</col>.",
+                "",
+                0));
+        ActivityUpdates updates = ready(timeline);
+        assertNotNull(updates);
+        assertEquals(1, updates.updates.size());
+        assertEquals("boss", updates.updates.get(0).get("type"));
+        assertEquals(
+                Map.of("boss", "Chambers of Xeric", "count_type", "completion", "count", 1, "total_count", 1234),
+                updates.updates.get(0).get("data"));
     }
 
     @Test
