@@ -19,7 +19,7 @@ import net.runelite.client.task.Schedule;
 @Slf4j
 @PluginDescriptor(name = "GIM hub")
 public class GimHubPlugin extends Plugin {
-    static final String VERSION = "1.11.2";
+    static final String VERSION = "1.12.0";
 
     @Inject
     private Client client;
