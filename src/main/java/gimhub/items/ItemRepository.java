@@ -144,15 +144,18 @@ public class ItemRepository {
         if (clickedDepositContainersButton && depositButtonItemsStaged == null) {
             final ItemContainer inventory = client.getItemContainer(InventoryID.INV);
             if (inventory != null) {
-                final Set<Integer> inventoryIDs = Arrays.stream(inventory.getItems())
+                final Set<Integer> carriedItemIdentifiers = Arrays.stream(inventory.getItems())
                         .map(Item::getId)
                         .filter(itemID -> itemID >= 0)
                         .collect(Collectors.toSet());
+                carriedItemIdentifiers.addAll(
+                        ItemsUtilities.convertToSafeMap(client.getItemContainer(InventoryID.WORN), itemManager)
+                                .keySet());
 
                 final Map<Integer, Integer> depositedItems = new HashMap<>();
                 for (TrackedItemContainer container : depositButtonContainers) {
                     final Map<Integer, Integer> containerItems =
-                            container.onDepositContainers(client, itemManager, inventoryIDs);
+                            container.onDepositContainers(client, itemManager, carriedItemIdentifiers);
                     for (final Map.Entry<Integer, Integer> entry : containerItems.entrySet()) {
                         depositedItems.merge(entry.getKey(), entry.getValue(), Integer::sum);
                     }

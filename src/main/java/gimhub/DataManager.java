@@ -4,6 +4,7 @@ import gimhub.achievement.AchievementRepository;
 import gimhub.activity.ActivityRepository;
 import gimhub.activity.LeagueMode;
 import gimhub.items.ItemRepository;
+import gimhub.items.ItemsUnordered;
 import gimhub.states.LeagueModeState;
 import gimhub.states.PlayerNameState;
 import gimhub.states.TimezoneState;
@@ -122,6 +123,8 @@ public class DataManager {
                     mergedFields.merge(key, value, ActivityUpdates::combine);
                 } else if (key.equals("collection_log_updates")) {
                     mergedFields.merge(key, value, CollectionLogUpdates::combine);
+                } else if (key.endsWith("_partial")) {
+                    mergedFields.merge(key, value, ItemsUnordered::combine);
                 } else {
                     mergedFields.put(key, value);
                 }

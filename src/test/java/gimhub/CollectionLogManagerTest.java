@@ -334,6 +334,23 @@ public class CollectionLogManagerTest {
     }
 
     @Test
+    public void leavingChambersAfterLogoutDoesNotBlockLaterDrops() {
+        when(client.getVarbitValue(VarbitID.RAIDS_CLIENT_INDUNGEON)).thenReturn(1);
+        chatNotification("Torn prayer scroll", 21047);
+
+        GameStateChanged logout = new GameStateChanged();
+        logout.setGameState(GameState.LOGIN_SCREEN);
+        collectionLogManager.onGameStateChanged(logout);
+        when(client.getVarbitValue(VarbitID.RAIDS_CLIENT_INDUNGEON)).thenReturn(0);
+        collectionLogManager.onGameTick(client);
+        loot(6739, 1);
+
+        assertEquals(
+                List.of(Map.of("type", "drop", "items", List.of(Map.of("item_id", 6739, "quantity", 1)))),
+                flattenedUpdates());
+    }
+
+    @Test
     public void aScanAfterAnUnlockAlreadyIncludesTheLateLootNotification() {
         when(itemResolver.findItemIdentifier("Dragon axe")).thenReturn(6739);
         collectionLogManager.handleNewCollectionLogItem(client, "Dragon axe", itemResolver);

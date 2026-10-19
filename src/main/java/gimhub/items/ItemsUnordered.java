@@ -48,6 +48,14 @@ public class ItemsUnordered implements APISerializable {
         this.itemsQuantityByID = ItemsUtilities.convertToSafeMap(itemsQuantityByID, itemManager);
     }
 
+    public static APISerializable combine(APISerializable older, APISerializable newer) {
+        ItemsUnordered combined = new ItemsUnordered((ItemsUnordered) older);
+        ((ItemsUnordered) newer)
+                .itemsQuantityByID.forEach(
+                        (identifier, quantity) -> combined.itemsQuantityByID.merge(identifier, quantity, Integer::sum));
+        return combined;
+    }
+
     @Override
     public Object serialize() {
         List<Integer> result = new ArrayList<>(itemsQuantityByID.size() * 2);

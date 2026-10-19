@@ -201,6 +201,8 @@ public class CollectionLogManager {
         currentTick = client.getTickCount();
         activityTimeline.onGameTick(currentTick);
         recentDropTicks.values().removeIf(tick -> currentTick > tick + UNLOCK_MATCH_TICKS);
+        pendingUpdates.removeIf(
+                update -> update.awaitingChambersLoot && client.getVarbitValue(VarbitID.RAIDS_CLIENT_INDUNGEON) == 0);
         if (collectionLogTransmitTick == -1
                 || collectionLogTransmitTick + COLLECTION_LOG_TRANSMIT_BUFFER_TICKS >= client.getTickCount()) {
             return;

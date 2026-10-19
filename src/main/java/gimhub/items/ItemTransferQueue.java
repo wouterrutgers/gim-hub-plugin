@@ -359,30 +359,26 @@ public class ItemTransferQueue {
                             inventoryExpectedChanges);
                     performTransfer(assumedNow.tackleBox, assumedNow.inventory, transferQuantities);
                 }
-            } else if (op.param1 == InterfaceID.BankDepositbox.DEPOSIT_INV) {
-                for (final int itemID : assumedNow.inventory.keySet()) {
-                    final int quantityTransferred = assumedNow.inventory.getOrDefault(itemID, 0);
-                    assumedNow.inventory.merge(itemID, -quantityTransferred, Integer::sum);
-                    assumedNow.bank.merge(itemID, quantityTransferred, Integer::sum);
-                }
-            } else if (op.param1 == InterfaceID.BankDepositbox.DEPOSIT_WORN) {
-                for (final int itemID : assumedNow.equipment.keySet()) {
-                    final int quantityTransferred = assumedNow.equipment.getOrDefault(itemID, 0);
-                    assumedNow.equipment.merge(itemID, -quantityTransferred, Integer::sum);
-                    assumedNow.bank.merge(itemID, quantityTransferred, Integer::sum);
-                }
-            } else if (op.param1 == InterfaceID.Bankmain.DEPOSITINV) {
-                for (final int itemID : assumedNow.inventory.keySet()) {
-                    final int quantityTransferred = assumedNow.inventory.getOrDefault(itemID, 0);
-                    assumedNow.inventory.merge(itemID, -quantityTransferred, Integer::sum);
-                    assumedNow.bank.merge(itemID, quantityTransferred, Integer::sum);
-                }
-            } else if (op.param1 == InterfaceID.Bankmain.DEPOSITWORN) {
-                for (final int itemID : assumedNow.equipment.keySet()) {
-                    final int quantityTransferred = assumedNow.equipment.getOrDefault(itemID, 0);
-                    assumedNow.equipment.merge(itemID, -quantityTransferred, Integer::sum);
-                    assumedNow.bank.merge(itemID, quantityTransferred, Integer::sum);
-                }
+            } else if (op.param1 == InterfaceID.BankDepositbox.DEPOSIT_INV
+                    || op.param1 == InterfaceID.Bankmain.DEPOSITINV) {
+                performTransfer(
+                        assumedNow.bank,
+                        assumedNow.inventory,
+                        filterLaterMinusNow(
+                                assumedNow.inventory,
+                                knownState.inventory,
+                                assumedNow.inventory.keySet(),
+                                TransferDirection.LOSS));
+            } else if (op.param1 == InterfaceID.BankDepositbox.DEPOSIT_WORN
+                    || op.param1 == InterfaceID.Bankmain.DEPOSITWORN) {
+                performTransfer(
+                        assumedNow.bank,
+                        assumedNow.equipment,
+                        filterLaterMinusNow(
+                                assumedNow.equipment,
+                                knownState.equipment,
+                                assumedNow.equipment.keySet(),
+                                TransferDirection.LOSS));
             } else {
                 continue;
             }

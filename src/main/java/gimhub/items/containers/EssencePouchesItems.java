@@ -139,7 +139,7 @@ public class EssencePouchesItems implements TrackedItemContainer {
         if (inventoryIDs.contains(ItemID.RCU_POUCH_LARGE) || inventoryIDs.contains(ItemID.RCU_POUCH_LARGE_DEGRADE)) {
             depositedItems.add(essencePouchItems.remove(PouchSize.LARGE));
         }
-        if (inventoryIDs.contains(ItemID.RCU_POUCH_GIANT) || inventoryIDs.contains(ItemID.RCU_POUCH_LARGE_DEGRADE)) {
+        if (inventoryIDs.contains(ItemID.RCU_POUCH_GIANT) || inventoryIDs.contains(ItemID.RCU_POUCH_GIANT_DEGRADE)) {
             depositedItems.add(essencePouchItems.remove(PouchSize.GIANT));
         }
         if (inventoryIDs.contains(ItemID.RCU_POUCH_COLOSSAL)

@@ -5,6 +5,7 @@ import gimhub.items.ItemsOrdered;
 import gimhub.items.ItemsUnordered;
 import gimhub.items.ItemsUtilities;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -94,7 +95,8 @@ public class FishBarrelItems implements TrackedItemContainer {
     private ItemsUnordered items = null;
     private boolean known = false;
 
-    private boolean hasBarrel = false;
+    private boolean hasInventoryBarrel = false;
+    private boolean hasEquippedBarrel = false;
     private final Map<Integer, Integer> inventoryFish = new HashMap<>();
     private Map<Integer, Integer> inventoryFishPrev = new HashMap<>();
 
@@ -234,7 +236,7 @@ public class FishBarrelItems implements TrackedItemContainer {
     }
 
     private void updateInventoryFish(ItemContainer container, ItemManager itemManager) {
-        hasBarrel = false;
+        hasInventoryBarrel = false;
         inventoryFish.clear();
 
         for (final Item item : container.getItems()) {
@@ -244,7 +246,7 @@ public class FishBarrelItems implements TrackedItemContainer {
 
             final int itemId = itemManager.canonicalize(item.getId());
             if (BARREL_IDS.contains(itemId)) {
-                hasBarrel = true;
+                hasInventoryBarrel = true;
             }
 
             if (ALL_FISH_IDS.contains(itemId)) {
@@ -257,6 +259,9 @@ public class FishBarrelItems implements TrackedItemContainer {
     public void onItemContainerChanged(ItemContainer container, ItemManager itemManager) {
         if (container.getId() == InventoryID.INV) {
             updateInventoryFish(container, itemManager);
+        }
+        if (container.getId() == InventoryID.WORN) {
+            hasEquippedBarrel = Arrays.stream(container.getItems()).anyMatch(item -> BARREL_IDS.contains(item.getId()));
         }
     }
 
@@ -303,7 +308,7 @@ public class FishBarrelItems implements TrackedItemContainer {
 
     @Override
     public void onChatMessage(Client client, ChatMessage event, ItemManager itemManager) {
-        if (!hasBarrel) {
+        if (!hasInventoryBarrel && !hasEquippedBarrel) {
             return;
         }
 
@@ -343,7 +348,7 @@ public class FishBarrelItems implements TrackedItemContainer {
             updateFromCheckWidget(widget, itemManager);
         }
 
-        if (hasBarrel && known) {
+        if ((hasInventoryBarrel || hasEquippedBarrel) && known) {
             final int tick = client.getTickCount();
 
             if (recentlyActioned(lastEmptyTick, tick)) {

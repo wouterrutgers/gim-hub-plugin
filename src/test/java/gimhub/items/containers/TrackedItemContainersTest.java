@@ -143,10 +143,18 @@ public class TrackedItemContainersTest {
     }
 
     @Test
-    public void coalBagParsesItsContentsAndClearsDepositedCoal() {
+    public void coalBagWaitsForCheckedContentsAndClearsDepositedCoal() {
         CoalBagItems coalBagItems = new CoalBagItems();
+        ItemContainer inventory = mock(ItemContainer.class);
+        when(inventory.getId()).thenReturn(InventoryID.INV);
+        when(inventory.getItems()).thenReturn(new Item[] {new Item(ItemID.COAL_BAG_OPEN, 1)});
+        coalBagItems.onItemContainerChanged(inventory, itemManager);
         ChatMessage event = new ChatMessage();
         event.setType(ChatMessageType.GAMEMESSAGE);
+        event.setMessage("You manage to mine some coal.");
+        coalBagItems.onChatMessage(client, event, itemManager);
+        assertNull(coalBagItems.get());
+
         event.setMessage("The coal bag contains 12 pieces of coal.");
 
         coalBagItems.onChatMessage(client, event, itemManager);

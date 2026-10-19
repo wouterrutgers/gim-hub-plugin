@@ -90,6 +90,17 @@ public class ItemTransferQueueTest {
     }
 
     @Test
+    public void depositAllOnlyCreditsItemsRemovedFromInventory() {
+        initialize(state(Map.of(ItemID.COINS, 100, ItemID.FEATHER, 50), Map.of(), Map.of(), Map.of()), false, false);
+        queue(InterfaceID.BankDepositbox.DEPOSIT_INV, 0, -1, 1);
+
+        ItemTransferQueue.ContainersToUpdate result = itemTransferQueue.onGameTick(
+                state(Map.of(ItemID.COINS, 100), Map.of(), Map.of(), Map.of()), bankSettings, 2, false, false);
+
+        assertEquals(Map.of(ItemID.FEATHER, 50), result.bank);
+    }
+
+    @Test
     public void infersTackleBoxFillAndEmptyActions() {
         int itemIdentifier = ItemID.FEATHER;
         initialize(state(Map.of(itemIdentifier, 10), Map.of(), Map.of(), Map.of()), false, true);

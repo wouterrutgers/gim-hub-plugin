@@ -121,6 +121,51 @@ public class StorageEventsTest {
     }
 
     @Test
+    public void wornFishSackBarrelTracksCatchesAndBulkDeposits() {
+        when(client.getEnum(EnumID.RUNEPOUCH_RUNE)).thenReturn(mock(EnumComposition.class));
+        when(client.getVarbitValue(VarbitID.FARMING_TOOLS_WATERINGCAN)).thenReturn(-1);
+        ItemRepository repository = new ItemRepository();
+        ItemContainer inventory = container(InventoryID.INV);
+        ItemContainer equipment = container(InventoryID.WORN, new Item(ItemID.FISH_SACK_BARREL_OPEN, 1));
+        doReturn(inventory).when(client).getItemContainer(InventoryID.INV);
+        doReturn(equipment).when(client).getItemContainer(InventoryID.WORN);
+        repository.onItemContainerChanged(inventory, itemManager);
+        repository.onItemContainerChanged(equipment, itemManager);
+        Widget contents = mock(Widget.class);
+        when(contents.getText()).thenReturn("The barrel contains: 5 x trout");
+        when(client.getWidget(InterfaceID.Objectbox.TEXT)).thenReturn(contents);
+        repository.onGameTick(client, itemManager);
+
+        when(client.getWidget(InterfaceID.Objectbox.TEXT)).thenReturn(null);
+        repository.onChatMessage(
+                client,
+                new ChatMessage(null, ChatMessageType.GAMEMESSAGE, "", "You catch a trout.", "", 0),
+                itemManager);
+        repository.onGameTick(client, itemManager);
+        Map<String, APISerializable> fields = new HashMap<>();
+        repository.flatten(fields);
+        assertEquals(Map.of(ItemID.RAW_TROUT, 6), pairs(fields.get("fish_barrel")));
+
+        MenuEntry entry = mock(MenuEntry.class);
+        when(entry.getParam1()).thenReturn(InterfaceID.BankDepositbox.DEPOSIT_LOOTINGBAG);
+        repository.onMenuOptionClicked(client, new MenuOptionClicked(entry), itemManager);
+        repository.onChatMessage(
+                client,
+                new ChatMessage(
+                        null,
+                        ChatMessageType.GAMEMESSAGE,
+                        "",
+                        "You empty all of your containers into the bank.",
+                        "",
+                        0),
+                itemManager);
+        repository.onGameTick(client, itemManager);
+        repository.flatten(fields);
+        assertEquals(Map.of(), pairs(fields.get("fish_barrel")));
+        assertEquals(Map.of(ItemID.RAW_TROUT, 6), pairs(fields.get("bank_partial")));
+    }
+
+    @Test
     public void emptyingHerbsIntoInventoryOnlyRemovesTheTransferredQuantity() {
         HerbSackItems herbs = new HerbSackItems(new BankItems());
         chat(herbs, "You look in your herb sack and see:");

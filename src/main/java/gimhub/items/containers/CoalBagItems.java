@@ -214,6 +214,10 @@ public class CoalBagItems implements TrackedItemContainer {
             }
         }
 
+        if (bagCoalAmount == null) {
+            return;
+        }
+
         if (hasOpenCoalBag) {
             final Matcher matcher = MINE_PATTERN.matcher(message);
             if (matcher.matches()) {
