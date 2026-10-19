@@ -42,6 +42,8 @@ public class QuiverItems implements TrackedItemContainer {
 
     @Override
     public void onGameTick(Client client, ItemManager itemManager) {
-        update(client, itemManager);
+        if (items == null) {
+            update(client, itemManager);
+        }
     }
 }

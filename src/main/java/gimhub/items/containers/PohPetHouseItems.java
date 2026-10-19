@@ -8,6 +8,7 @@ import net.runelite.api.Client;
 import net.runelite.api.EnumComposition;
 import net.runelite.api.Item;
 import net.runelite.api.ItemContainer;
+import net.runelite.api.events.WidgetLoaded;
 import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.gameval.InventoryID;
 import net.runelite.api.gameval.VarPlayerID;
@@ -54,8 +55,15 @@ public class PohPetHouseItems implements TrackedItemContainer {
     }
 
     @Override
+    public void onWidgetLoaded(WidgetLoaded event) {
+        if (event.getGroupId() == InterfaceID.POH_MENAGERIE) {
+            pending = true;
+        }
+    }
+
+    @Override
     public void onGameTick(Client client, ItemManager itemManager) {
-        if (!pending && client.getWidget(InterfaceID.PohMenagerie.UNIVERSE) == null) {
+        if (!pending && (items != null || client.getWidget(InterfaceID.PohMenagerie.UNIVERSE) == null)) {
             return;
         }
 

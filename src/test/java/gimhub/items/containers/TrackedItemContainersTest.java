@@ -75,6 +75,21 @@ public class TrackedItemContainersTest {
     }
 
     @Test
+    public void nightmareZoneCofferPublishesCoinsRatherThanThousandsAndClearsSpentCoins() {
+        when(client.getVarbitValue(VarbitID.NZONE_CASH)).thenReturn(1234);
+        NightmareZoneCofferItems coffer = new NightmareZoneCofferItems();
+
+        coffer.onGameTick(client, itemManager);
+
+        assertEquals(List.of(ItemID.COINS, 1234000), coffer.get().serialize());
+
+        when(client.getVarbitValue(VarbitID.NZONE_CASH)).thenReturn(0);
+        coffer.onVarbitChanged(client, -1, VarbitID.NZONE_CASH, itemManager);
+
+        assertEquals(List.of(), coffer.get().serialize());
+    }
+
+    @Test
     public void sharedBankCommitsOnlyWhenTheSavingIndicatorAppears() {
         SharedBankItems sharedBankItems = new SharedBankItems();
         ItemContainer container = mock(ItemContainer.class);

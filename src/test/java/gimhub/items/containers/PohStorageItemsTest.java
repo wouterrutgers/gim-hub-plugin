@@ -11,6 +11,7 @@ import net.runelite.api.Client;
 import net.runelite.api.EnumComposition;
 import net.runelite.api.Item;
 import net.runelite.api.ItemComposition;
+import net.runelite.api.events.WidgetLoaded;
 import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.gameval.InventoryID;
 import net.runelite.api.gameval.ItemID;
@@ -165,6 +166,13 @@ public class PohStorageItemsTest {
         when(client.getWidget(InterfaceID.PohMenagerie.UNIVERSE)).thenReturn(mock(Widget.class));
         house.onGameTick(client, itemManager);
         assertEquals(Map.of(12650, 1), pairs(house.get()));
+
+        when(client.getVarpValue(VarPlayerID.PRAYER20)).thenReturn(0);
+        WidgetLoaded loaded = new WidgetLoaded();
+        loaded.setGroupId(InterfaceID.POH_MENAGERIE);
+        house.onWidgetLoaded(loaded);
+        house.onGameTick(client, itemManager);
+        assertEquals(Map.of(), pairs(house.get()));
     }
 
     @Test
