@@ -51,6 +51,22 @@ public class ActivityTimelineTest {
     }
 
     @Test
+    public void trainingKeepsItsLastTimestampWhenTheClockMovesBackwards() {
+        ActivityTimeline timeline = new ActivityTimeline();
+        timeline.trackExperience(Skill.ATTACK, 1000, 10, 1000);
+        timeline.trackExperience(Skill.ATTACK, 1100, 10, 2000);
+        timeline.trackExperience(Skill.ATTACK, 1200, 10, 3000);
+        timeline.acknowledge(ready(timeline));
+        timeline.trackExperience(Skill.ATTACK, 1300, 10, 2900);
+        Map<String, Object> update = ready(timeline).updates.get(0);
+        assertEquals(3000L, update.get("occurred_at"));
+        assertEquals(3, update.get("revision"));
+        assertEquals(Map.of("skills", Map.of("Attack", 300L)), update.get("data"));
+        timeline.trackExperience(Skill.ATTACK, 1400, 10, 3100);
+        assertEquals(3100L, ready(timeline).updates.get(0).get("occurred_at"));
+    }
+
+    @Test
     public void bossCountsIgnoreRepeatsAndCreateANewStretchAfterAPause() {
         ActivityTimeline timeline = new ActivityTimeline();
         timeline.trackBoss("Vorkath", "kill", 100, 1000);

@@ -76,7 +76,7 @@ public class ActivityTimeline {
     }
 
     private void changed(Entry entry, long timestamp) {
-        entry.occurredAt = timestamp;
+        entry.occurredAt = Math.max(entry.occurredAt, timestamp);
         entry.revision++;
         pending.put(entry.identifier, entry);
     }
