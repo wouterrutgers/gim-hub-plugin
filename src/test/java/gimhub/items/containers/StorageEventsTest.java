@@ -500,6 +500,54 @@ public class StorageEventsTest {
     }
 
     @Test
+    public void gemSackContentsFollowChecksTransfersMiningAndBankDeposits() {
+        GemBagItems gems = new GemBagItems();
+        chat(
+                gems,
+                "Opal: 1 / Jade: 2 / Red topaz: 3<br>Sapphires: 4 / Emeralds: 5 / Rubies: 6 / Diamonds: 7 / Dragonstones: 8");
+        doReturn(container(InventoryID.INV, new Item(ItemID.GEM_SACK, 1), new Item(ItemID.UNCUT_OPAL, 1)))
+                .when(client)
+                .getItemContainer(InventoryID.INV);
+        MenuEntry entry = mock(MenuEntry.class);
+        when(entry.getItemId()).thenReturn(ItemID.GEM_SACK);
+        when(entry.getOption()).thenReturn("Fill");
+        gems.onMenuOptionClicked(client, new MenuOptionClicked(entry), itemManager);
+        doReturn(container(InventoryID.INV, new Item(ItemID.GEM_SACK, 1)))
+                .when(client)
+                .getItemContainer(InventoryID.INV);
+        gems.onGameTick(client, itemManager);
+
+        ItemContainer inventory = container(InventoryID.INV, new Item(ItemID.GEM_SACK_OPEN, 1));
+        when(inventory.contains(ItemID.GEM_SACK_OPEN)).thenReturn(true);
+        when(client.getItemContainer(InventoryID.INV)).thenReturn(inventory);
+        chat(gems, "You just mined a red topaz!");
+
+        Map<Integer, Integer> expected = Map.of(
+                ItemID.UNCUT_OPAL, 2,
+                ItemID.UNCUT_JADE, 2,
+                ItemID.UNCUT_RED_TOPAZ, 4,
+                ItemID.UNCUT_SAPPHIRE, 4,
+                ItemID.UNCUT_EMERALD, 5,
+                ItemID.UNCUT_RUBY, 6,
+                ItemID.UNCUT_DIAMOND, 7,
+                ItemID.UNCUT_DRAGONSTONE, 8);
+        assertEquals(expected, pairs(gems.get()));
+        assertEquals(expected, gems.onDepositContainers(client, itemManager, Set.of(ItemID.GEM_SACK_OPEN)));
+        chat(gems, "You empty all of your containers into the bank.");
+        assertEquals(Map.of(), pairs(gems.get()));
+    }
+
+    @Test
+    public void gemSackMessagesUpdateAndClearKnownContents() {
+        GemBagItems gems = new GemBagItems();
+        chat(gems, "The gem sack is empty.");
+        chat(gems, "The following stolen loot gets added to your gem sack: Uncut Jade x 2.");
+        assertEquals(Map.of(ItemID.UNCUT_JADE, 2), pairs(gems.get()));
+        chat(gems, "You empty your gem sack into the bank.");
+        assertEquals(Map.of(), pairs(gems.get()));
+    }
+
+    @Test
     public void openingNativeStorageWaitsForContentsInsteadOfPublishingEmptyData() {
         for (ContainerItems tracker : List.of(new LootingBagItems(), new SeedBoxItems(), new ChuggingBarrelItems())) {
             tracker.onGameTick(client, itemManager);

@@ -54,7 +54,7 @@ tasks.register('run', JavaExec) {
     classpath = sourceSets.test.runtimeClasspath
     mainClass = 'gimhub.GimHubPluginTest'
     jvmArgs '-ea', '--add-exports=java.desktop/com.apple.eawt=ALL-UNNAMED'
-    args '--developer-mode', '--debug'
+    args '--developer-mode', '--debug', '--profile=Dev'
 }
 
 tasks.register('shadowJar', Jar) {
