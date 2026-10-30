@@ -49,7 +49,10 @@ public class CheckedStorageItems extends ChatStorageItems {
         if (checking == null) {
             return;
         }
-        String text = Text.removeTags(message.replace("<br>", "\n")).trim().replace(" and ", "\n");
+        String text = Text.removeTags(message.replace("<br>", "\n"))
+                .trim()
+                .replace(" and ", "\n")
+                .replaceAll("(?m)^([^:\\n]+): ([\\d,]+)$", "$2 $1");
         String lower = text.toLowerCase(Locale.ROOT);
         if (lower.endsWith(" is empty.") || (lower.contains(label) && lower.contains(" contains no "))) {
             setItems(Map.of(), itemManager);

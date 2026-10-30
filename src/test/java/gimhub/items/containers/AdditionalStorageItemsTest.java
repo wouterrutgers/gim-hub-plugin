@@ -38,6 +38,27 @@ public class AdditionalStorageItemsTest {
     }
 
     @Test
+    public void flamtaerBagChecksReadLabelledQuantitiesFromChatAndDialogue() {
+        CheckedStorageItems bag = CheckedStorageItems.flamtaerBag();
+        name(ItemID.TIMBERBEAM, "Timber beam");
+        name(ItemID.LIMESTONEBRICK, "Limestone brick");
+        name(ItemID.SWAMPPASTE, "Swamp paste");
+        check(bag, ItemID.FLAMTAER_BAG);
+        chat(bag, "Timber beams: 60<br>Limestone bricks: 60<br>Swamp paste: 500");
+        bag.onGameTick(client, itemManager);
+        assertEquals(
+                Map.of(ItemID.TIMBERBEAM, 60, ItemID.LIMESTONEBRICK, 60, ItemID.SWAMPPASTE, 500), pairs(bag.get()));
+
+        check(bag, ItemID.FLAMTAER_BAG);
+        Widget text = mock(Widget.class);
+        when(client.getWidget(InterfaceID.Objectbox.TEXT)).thenReturn(text);
+        when(text.getText()).thenReturn("Timber beams: 34<br>Limestone bricks: 60<br>Swamp paste: 500");
+        bag.onGameTick(client, itemManager);
+        assertEquals(
+                Map.of(ItemID.TIMBERBEAM, 34, ItemID.LIMESTONEBRICK, 60, ItemID.SWAMPPASTE, 500), pairs(bag.get()));
+    }
+
+    @Test
     public void basketChecksPreserveKnownContentsUntilEveryListedItemCanBeRead() {
         CheckedStorageItems basket = CheckedStorageItems.logBasket();
         name(ItemID.OAK_LOGS, "Oak logs");
