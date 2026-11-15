@@ -3,6 +3,7 @@ package gimhub;
 import com.google.gson.Gson;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.CompletableFuture;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import lombok.Getter;
@@ -37,6 +38,51 @@ public class HttpRequestService {
         Request request = buildRequest(url, authToken).get().build();
 
         return executeRequest(request, "GET", url, null);
+    }
+
+    public CompletableFuture<HttpResponse> getAsync(String url, String authToken) {
+        return executeAsync(buildRequest(url, authToken).get().build(), "GET", url, null);
+    }
+
+    public CompletableFuture<HttpResponse> patchAsync(String url, String authToken, Object changes) {
+        String requestJson = gson.toJson(changes);
+        return executeAsync(
+                buildRequest(url, authToken)
+                        .patch(RequestBody.create(JSON, requestJson))
+                        .build(),
+                "PATCH",
+                url,
+                requestJson);
+    }
+
+    private CompletableFuture<HttpResponse> executeAsync(
+            Request request, String method, String url, String requestBody) {
+        CompletableFuture<HttpResponse> future = new CompletableFuture<>();
+        Call call = okHttpClient.newCall(request);
+        future.whenComplete((response, error) -> {
+            if (future.isCancelled()) {
+                call.cancel();
+            }
+        });
+        call.enqueue(new Callback() {
+            @Override
+            public void onFailure(Call call, IOException error) {
+                if (!future.isCancelled()) {
+                    log.warn("{} {} failed: {}", method, url, error.toString());
+                }
+                future.completeExceptionally(error);
+            }
+
+            @Override
+            public void onResponse(Call call, Response response) {
+                try (Response ignored = response) {
+                    String responseBody = readBodySafe(response);
+                    logRequest(method, url, requestBody, response, responseBody);
+                    future.complete(new HttpResponse(response.isSuccessful(), response.code(), responseBody));
+                }
+            }
+        });
+        return future;
     }
 
     public HttpResponse post(String url, String authToken, Object requestBody) {
@@ -110,7 +156,14 @@ public class HttpRequestService {
                 log.debug("GET {} -> {}\nResponse: {}", url, response.code(), responseBody);
                 break;
             case "POST":
-                log.debug("POST {}\nRequest: {}\nResponse({}): {}", url, requestBody, response.code(), responseBody);
+            case "PATCH":
+                log.debug(
+                        "{} {}\nRequest: {}\nResponse({}): {}",
+                        method,
+                        url,
+                        requestBody,
+                        response.code(),
+                        responseBody);
                 break;
             default:
                 log.debug("{} {} -> {}\nResponse: {}", method, url, response.code(), responseBody);

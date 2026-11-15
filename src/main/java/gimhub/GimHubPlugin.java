@@ -2,19 +2,27 @@ package gimhub;
 
 import com.google.inject.Provides;
 import gimhub.DataManager.PlayerState;
+import gimhub.companion.CompanionClient;
+import gimhub.companion.CompanionPanel;
 import java.time.temporal.ChronoUnit;
 import javax.inject.Inject;
+import javax.swing.SwingUtilities;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.*;
 import net.runelite.api.events.*;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
+import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.game.ItemManager;
+import net.runelite.client.game.SkillIconManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.loottracker.LootReceived;
 import net.runelite.client.task.Schedule;
+import net.runelite.client.ui.ClientToolbar;
+import net.runelite.client.ui.NavigationButton;
+import net.runelite.client.util.ImageUtil;
 
 @Slf4j
 @PluginDescriptor(name = "GIM hub")
@@ -34,13 +42,40 @@ public class GimHubPlugin extends Plugin {
     private ItemManager itemManager;
 
     @Inject
+    private SkillIconManager skillIconManager;
+
+    @Inject
     private CollectionLogItemResolver collectionLogItemResolver;
+
+    @Inject
+    private CompanionClient companion;
+
+    @Inject
+    private ClientToolbar clientToolbar;
+
+    private NavigationButton companionNavigation;
+    private volatile int companionGeneration;
 
     private static final int SECONDS_BETWEEN_UPLOADS = 1;
     private static final int SECONDS_BETWEEN_INFREQUENT_DATA_CHANGES = 60;
 
     @Override
     protected void startUp() throws Exception {
+        int generation = ++companionGeneration;
+        SwingUtilities.invokeLater(() -> {
+            if (generation != companionGeneration) {
+                return;
+            }
+            CompanionPanel panel = new CompanionPanel(companion, itemManager, skillIconManager);
+            companion.start(panel::update);
+            companionNavigation = NavigationButton.builder()
+                    .tooltip("GIM Hub")
+                    .icon(ImageUtil.resizeImage(ImageUtil.loadImageResource(GimHubPlugin.class, "icon.png"), 16, 16))
+                    .panel(panel)
+                    .priority(5)
+                    .build();
+            clientToolbar.addNavigation(companionNavigation);
+        });
         log.info("GIM hub started!");
         clientThread.invoke(() -> {
             PlayerState state = dataManager.getMaybeResetState(client);
@@ -55,8 +90,31 @@ public class GimHubPlugin extends Plugin {
 
     @Override
     protected void shutDown() throws Exception {
+        companionGeneration++;
+        companion.stop();
+        SwingUtilities.invokeLater(() -> {
+            if (companionNavigation != null) {
+                clientToolbar.removeNavigation(companionNavigation);
+                companionNavigation = null;
+            }
+        });
         dataManager.reset();
         log.info("GIM hub stopped!");
+    }
+
+    @Schedule(period = 5, unit = ChronoUnit.SECONDS, asynchronous = true)
+    public void refreshCompanion() {
+        companion.refresh();
+    }
+
+    @Subscribe
+    public void onConfigChanged(ConfigChanged event) {
+        if (event.getGroup().equals("GimHub")
+                && (event.getKey().equals("groupName")
+                        || event.getKey().equals("groupToken")
+                        || event.getKey().equals("baseUrlOverride"))) {
+            companion.refresh();
+        }
     }
 
     @Schedule(period = SECONDS_BETWEEN_UPLOADS, unit = ChronoUnit.SECONDS, asynchronous = true)
