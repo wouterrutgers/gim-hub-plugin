@@ -1,12 +1,10 @@
 package gimhub.companion;
 
-import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Graphics;
-import java.awt.Graphics2D;
 import java.awt.Insets;
 import java.awt.Rectangle;
 import java.awt.event.MouseAdapter;
@@ -35,12 +33,8 @@ final class CompanionStyle {
     static final int GAP = 8;
     static final int SMALL_GAP = 4;
     private static final String HOVER_INDEX = "gimHub.hoveredIndex";
-    private static final String CONTROL_STYLE = "arc: 4; focusWidth: 1; innerFocusWidth: 0; "
-            + "borderColor: #373737; focusedBorderColor: #e5ab4d; focusColor: #e5ab4d";
-    private static final Border[] ROW_BORDERS = {
-        new RowBorder(false, false), new RowBorder(true, false),
-        new RowBorder(false, true), new RowBorder(true, true)
-    };
+    private static final String CONTROL_STYLE = "arc: 4; borderColor: #373737";
+    private static final Border[] ROW_BORDERS = {new RowBorder(false), new RowBorder(true)};
 
     private CompanionStyle() {}
 
@@ -68,6 +62,7 @@ final class CompanionStyle {
                         + "selectedBackground: #373127; selectedForeground: #e5ab4d");
         button.setMargin(new Insets(4, 8, 4, 8));
         button.setRolloverEnabled(true);
+        button.setFocusPainted(false);
         button.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         control(button);
     }
@@ -77,11 +72,12 @@ final class CompanionStyle {
                 "FlatLaf.style",
                 "buttonType: tab; minimumWidth: 0; "
                         + "tab.underlineColor: #e5ab4d; tab.underlineHeight: 2; "
-                        + "tab.selectedBackground: #373127; tab.hoverBackground: #2d2d2d; tab.focusBackground: #373737");
+                        + "tab.selectedBackground: #373127; tab.hoverBackground: #2d2d2d");
         button.setMargin(new Insets(4, 4, 4, 4));
         button.setContentAreaFilled(true);
         button.setOpaque(false);
         button.setRolloverEnabled(true);
+        button.setFocusPainted(false);
         button.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         button.setPreferredSize(new Dimension(32, 32));
         button.setMinimumSize(new Dimension(0, 32));
@@ -90,11 +86,11 @@ final class CompanionStyle {
     static void checkbox(JCheckBox checkbox) {
         checkbox.putClientProperty(
                 "FlatLaf.style",
-                "icon.arc: 4; icon.focusWidth: 1; "
-                        + "icon.focusColor: #e5ab4d; icon.borderColor: #6a6a6a; "
+                "icon.arc: 4; icon.borderColor: #6a6a6a; "
                         + "icon.selectedBorderColor: #e5ab4d; icon.selectedBackground: #e5ab4d; "
                         + "icon.checkmarkColor: #1e1e1e; icon.hoverBorderColor: #e5ab4d");
         checkbox.setOpaque(false);
+        checkbox.setFocusPainted(false);
         checkbox.setForeground(MUTED);
         checkbox.setIconTextGap(8);
         checkbox.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
@@ -129,8 +125,8 @@ final class CompanionStyle {
         return selected ? SELECTED : hovered ? HOVER : ColorScheme.DARKER_GRAY_COLOR;
     }
 
-    static Border rowBorder(boolean selected, boolean focused) {
-        return ROW_BORDERS[(selected ? 1 : 0) + (focused ? 2 : 0)];
+    static Border rowBorder(boolean selected) {
+        return ROW_BORDERS[selected ? 1 : 0];
     }
 
     static boolean isHovered(JList<?> list, int index) {
@@ -187,12 +183,10 @@ final class CompanionStyle {
 
     private static final class RowBorder extends EmptyBorder {
         private final boolean selected;
-        private final boolean focused;
 
-        private RowBorder(boolean selected, boolean focused) {
+        private RowBorder(boolean selected) {
             super(6, 8, 6, 8);
             this.selected = selected;
-            this.focused = focused;
         }
 
         @Override
@@ -200,14 +194,6 @@ final class CompanionStyle {
             if (selected) {
                 graphics.setColor(ACCENT);
                 graphics.fillRect(x + 1, y + 5, 2, height - 10);
-            }
-            if (focused) {
-                Graphics2D focus = (Graphics2D) graphics.create();
-                focus.setColor(MUTED);
-                focus.setStroke(new BasicStroke(
-                        1f, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER, 10f, new float[] {1f, 2f}, 0f));
-                focus.drawRoundRect(x + 1, y + 1, width - 3, height - 3, 4, 4);
-                focus.dispose();
             }
         }
     }

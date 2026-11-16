@@ -68,8 +68,7 @@ public class CompanionPanel extends PluginPanel {
         setBackground(ColorScheme.DARK_GRAY_COLOR);
 
         tabs.putClientProperty(
-                "FlatLaf.style",
-                "underlineColor: #e5ab4d; hoverColor: #2d2d2d; " + "focusColor: #373737; contentAreaColor: #373737");
+                "FlatLaf.style", "underlineColor: #e5ab4d; hoverColor: #2d2d2d; contentAreaColor: #373737");
         add(status, BorderLayout.NORTH);
 
         activityPanel = new ActivityPanel(companion, skillIconManager, this::itemIcon);

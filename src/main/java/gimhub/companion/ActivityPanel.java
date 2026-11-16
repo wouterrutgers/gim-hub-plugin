@@ -9,7 +9,6 @@ import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.Rectangle;
-import java.awt.event.ActionEvent;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.awt.event.MouseAdapter;
@@ -29,7 +28,6 @@ import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import javax.swing.AbstractAction;
 import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
 import javax.swing.Icon;
@@ -42,7 +40,6 @@ import javax.swing.JList;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
-import javax.swing.KeyStroke;
 import javax.swing.ListCellRenderer;
 import javax.swing.ListSelectionModel;
 import javax.swing.ScrollPaneConstants;
@@ -58,15 +55,15 @@ public class ActivityPanel extends JPanel {
     private static final DateTimeFormatter CLOCK =
             DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault());
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("d MMM yyyy");
-    private static final List<String> FILTERS = Arrays.asList(
-            "Highlights", "All activity", "XP", "Levels", "Bosses", "Quests", "Diaries", "Drops", "Collection log");
-    private static final List<String> TYPES =
-            Arrays.asList("", "", "xp", "level", "boss", "quest", "diary", "loot", "collection");
+    private static final List<String> FILTERS =
+            Arrays.asList("All activity", "XP", "Levels", "Boss kills", "Quests", "Diaries", "Drops");
+    private static final List<String> TYPES = Arrays.asList("", "xp", "level", "boss", "quest", "diary", "loot");
     private final CompanionClient client;
     private final SkillIconManager skillIcons;
     private final BiFunction<Integer, Long, ImageIcon> itemIcons;
     private final JComboBox<String> filter = new JComboBox<>(FILTERS.toArray(new String[0]));
-    private final JCheckBox newOnly = new JCheckBox("Only new or updated");
+    private final JCheckBox newOnly = new JCheckBox("New only");
+    private final JCheckBox filterDrops = new JCheckBox("Filter drops", true);
     private final JLabel sinceLastVisit = label("");
     private final JList<Row> feed = new JList<Row>() {
         @Override
@@ -97,14 +94,24 @@ public class ActivityPanel extends JPanel {
         filters.setLayout(new BoxLayout(filters, BoxLayout.Y_AXIS));
         filters.setOpaque(false);
         CompanionStyle.choice(filter);
+        filter.getAccessibleContext().setAccessibleName("Filter activity by type");
         CompanionStyle.checkbox(newOnly);
+        CompanionStyle.checkbox(filterDrops);
+        newOnly.setToolTipText("Only show new or updated activity since you last viewed this tab.");
+        newOnly.getAccessibleContext().setAccessibleName("Only new or updated activity");
+        filterDrops.setToolTipText(
+                "Only show drops worth at least 1m GP or new collection log unlocks. Other activity is always shown.");
         filter.setAlignmentX(LEFT_ALIGNMENT);
-        newOnly.setAlignmentX(LEFT_ALIGNMENT);
+        JPanel options = new JPanel(new BorderLayout(CompanionStyle.SMALL_GAP, 0));
+        options.setOpaque(false);
+        options.setAlignmentX(LEFT_ALIGNMENT);
+        options.add(newOnly, BorderLayout.WEST);
+        options.add(filterDrops, BorderLayout.EAST);
         sinceLastVisit.setAlignmentX(LEFT_ALIGNMENT);
         sinceLastVisit.setForeground(MUTED);
         filters.add(filter);
         filters.add(javax.swing.Box.createVerticalStrut(CompanionStyle.SMALL_GAP));
-        filters.add(newOnly);
+        filters.add(options);
         filters.add(javax.swing.Box.createVerticalStrut(CompanionStyle.SMALL_GAP));
         filters.add(sinceLastVisit);
         add(filters, BorderLayout.NORTH);
@@ -140,6 +147,7 @@ public class ActivityPanel extends JPanel {
         add(scroller, BorderLayout.CENTER);
         filter.addActionListener(event -> resetFilter());
         newOnly.addActionListener(event -> resetFilter());
+        filterDrops.addActionListener(event -> resetFilter());
         feed.addMouseListener(new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent event) {
@@ -149,17 +157,6 @@ public class ActivityPanel extends JPanel {
                 int index = feed.locationToIndex(event.getPoint());
                 if (index >= 0 && feed.getCellBounds(index, index).contains(event.getPoint())) {
                     toggle(rows.get(index));
-                }
-            }
-        });
-        feed.getInputMap().put(KeyStroke.getKeyStroke("ENTER"), "toggle-details");
-        feed.getInputMap().put(KeyStroke.getKeyStroke("SPACE"), "toggle-details");
-        feed.getActionMap().put("toggle-details", new AbstractAction() {
-            @Override
-            public void actionPerformed(ActionEvent event) {
-                Row selected = feed.getSelectedValue();
-                if (selected != null) {
-                    toggle(selected);
                 }
             }
         });
@@ -189,13 +186,15 @@ public class ActivityPanel extends JPanel {
         highlights = client.getActivityHighlights();
         sinceLastVisit.setText(highlights.size() + " new since last viewed");
         sinceLastVisit.setVisible(!highlights.isEmpty());
-        int selectedFilter = filter.getSelectedIndex();
+        String selectedType = TYPES.get(filter.getSelectedIndex());
         List<JsonObject> entries = data.hasMetadata()
                 ? data.activities().stream()
-                        .filter(entry -> selectedFilter == 1
-                                || (selectedFilter == 0
-                                        ? !entry.get("type").getAsString().equals("xp")
-                                        : entry.get("type").getAsString().equals(TYPES.get(selectedFilter))))
+                        .filter(entry -> !filterDrops.isSelected()
+                                || !entry.get("type").getAsString().equals("collection"))
+                        .filter(entry -> selectedType.isEmpty()
+                                || entry.get("type").getAsString().equals(selectedType)
+                                || selectedType.equals("loot")
+                                        && entry.get("type").getAsString().equals("collection"))
                         .filter(entry -> !newOnly.isSelected()
                                 || highlights.contains(entry.get("id").getAsLong()))
                         .collect(Collectors.toList())
@@ -454,7 +453,7 @@ public class ActivityPanel extends JPanel {
             setBackground(background);
             setBorder(BorderFactory.createCompoundBorder(
                     BorderFactory.createMatteBorder(0, 0, 4, 0, ColorScheme.DARK_GRAY_COLOR),
-                    CompanionStyle.rowBorder(changed || open, focused)));
+                    CompanionStyle.rowBorder(changed || open)));
             int memberIdentifier = entry.get("member_id").getAsInt();
             int hue = data.players().stream()
                     .filter(player ->

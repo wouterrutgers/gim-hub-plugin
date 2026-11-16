@@ -3,7 +3,6 @@ package gimhub.companion;
 import com.google.gson.JsonObject;
 import gimhub.companion.CompanionData.Holding;
 import gimhub.companion.CompanionData.StockItem;
-import java.awt.BasicStroke;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
@@ -14,7 +13,6 @@ import java.awt.GridLayout;
 import java.awt.Point;
 import java.awt.Polygon;
 import java.awt.Rectangle;
-import java.awt.event.ActionEvent;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.awt.event.MouseAdapter;
@@ -29,7 +27,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
-import javax.swing.AbstractAction;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.ImageIcon;
@@ -41,7 +38,6 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
-import javax.swing.KeyStroke;
 import javax.swing.ListCellRenderer;
 import javax.swing.ListSelectionModel;
 import javax.swing.ScrollPaneConstants;
@@ -253,24 +249,6 @@ public class ItemsPanel extends JPanel {
                 }
             }
         });
-        grid.getInputMap().put(KeyStroke.getKeyStroke("ENTER"), "item-details");
-        grid.getActionMap().put("item-details", new AbstractAction() {
-            @Override
-            public void actionPerformed(ActionEvent event) {
-                if (grid.getSelectedValue() != null) {
-                    select(grid.getSelectedValue());
-                }
-            }
-        });
-        grid.getInputMap().put(KeyStroke.getKeyStroke("P"), "pin-item");
-        grid.getActionMap().put("pin-item", new AbstractAction() {
-            @Override
-            public void actionPerformed(ActionEvent event) {
-                if (grid.getSelectedValue() != null) {
-                    togglePin(grid.getSelectedValue());
-                }
-            }
-        });
     }
 
     public void update() {
@@ -453,7 +431,6 @@ public class ItemsPanel extends JPanel {
         private List<String> itemOwners;
         private boolean selected;
         private boolean hovered;
-        private boolean focused;
         private boolean pinned;
         private boolean pending;
 
@@ -463,7 +440,6 @@ public class ItemsPanel extends JPanel {
             this.item = item;
             this.selected = Objects.equals(detailsIdentifier, item.getIdentifier());
             this.hovered = CompanionStyle.isHovered(list, index);
-            this.focused = focused;
             pinned = client.isPinned(item.getIdentifier());
             pending = client.isPinPending(item.getIdentifier());
             itemOwners = item.getHoldings().stream()
@@ -488,14 +464,6 @@ public class ItemsPanel extends JPanel {
             if (selected) {
                 graphics.setColor(ACCENT);
                 graphics.drawRoundRect(2, 2, getWidth() - 5, getHeight() - 5, 5, 5);
-            }
-            if (focused && !selected) {
-                Graphics2D focus = (Graphics2D) graphics.create();
-                focus.setColor(MUTED);
-                focus.setStroke(new BasicStroke(
-                        1f, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER, 10f, new float[] {1f, 2f}, 0f));
-                focus.drawRoundRect(3, 3, getWidth() - 7, getHeight() - 7, 3, 3);
-                focus.dispose();
             }
             ImageIcon image = itemIcons.apply(item.getIdentifier(), item.total());
             if (image != null) {

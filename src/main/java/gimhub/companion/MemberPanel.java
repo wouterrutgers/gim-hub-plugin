@@ -15,10 +15,8 @@ import java.awt.Graphics;
 import java.awt.GridLayout;
 import java.awt.Point;
 import java.awt.Rectangle;
-import java.awt.event.ActionEvent;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
-import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
@@ -37,7 +35,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
-import javax.swing.AbstractAction;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.ImageIcon;
@@ -51,7 +48,6 @@ import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.JToggleButton;
-import javax.swing.KeyStroke;
 import javax.swing.ListSelectionModel;
 import javax.swing.ScrollPaneConstants;
 import javax.swing.SwingUtilities;
@@ -371,7 +367,7 @@ public class MemberPanel extends JPanel {
             row.setOpaque(true);
             row.setBackground(CompanionStyle.rowBackground(
                     selected && value instanceof QuestProgress, CompanionStyle.isHovered(list, index)));
-            row.setBorder(CompanionStyle.rowBorder(selected && value instanceof QuestProgress, focused));
+            row.setBorder(CompanionStyle.rowBorder(selected && value instanceof QuestProgress));
             row.setForeground(value instanceof QuestProgress ? questColor(((QuestProgress) value).getState()) : ACCENT);
             if (value instanceof QuestProgress) {
                 QuestProgress quest = (QuestProgress) value;
@@ -391,13 +387,6 @@ public class MemberPanel extends JPanel {
                     questList.setSelectedIndex(index);
                     openSelectedQuest();
                 }
-            }
-        });
-        questList.getInputMap().put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), "openQuest");
-        questList.getActionMap().put("openQuest", new AbstractAction() {
-            @Override
-            public void actionPerformed(ActionEvent event) {
-                openSelectedQuest();
             }
         });
         questSearch.getDocument().addDocumentListener(new DocumentListener() {
@@ -469,7 +458,7 @@ public class MemberPanel extends JPanel {
         diaryTasks.setCellRenderer((list, task, index, selected, focused) -> {
             taskRow.setText(task.getName());
             taskRow.setBackground(CompanionStyle.rowBackground(selected, CompanionStyle.isHovered(list, index)));
-            taskRow.setBorder(CompanionStyle.rowBorder(selected, focused));
+            taskRow.setBorder(CompanionStyle.rowBorder(selected));
             taskRow.setForeground(
                     task.getComplete() == null ? Color.LIGHT_GRAY : task.getComplete() ? COMPLETE : INCOMPLETE);
             taskRow.setToolTipText(task.getName() + " (Open on OSRS Wiki)");
@@ -507,13 +496,6 @@ public class MemberPanel extends JPanel {
                     diaryTasks.setSelectedIndex(index);
                     openSelectedDiaryTask();
                 }
-            }
-        });
-        diaryTasks.getInputMap().put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), "openDiaryTask");
-        diaryTasks.getActionMap().put("openDiaryTask", new AbstractAction() {
-            @Override
-            public void actionPerformed(ActionEvent event) {
-                openSelectedDiaryTask();
             }
         });
         diaryTier.addActionListener(event -> {
