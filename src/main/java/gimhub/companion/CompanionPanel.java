@@ -56,6 +56,7 @@ public class CompanionPanel extends PluginPanel {
         }
     };
     private final JPanel members = vertical();
+    private final JTextArea emptyMembers = text("No members");
     private final Map<Integer, MemberPanel> memberPanels = new HashMap<>();
     private CompanionData displayedData;
     private List<Integer> memberOrder = new ArrayList<>();
@@ -144,8 +145,9 @@ public class CompanionPanel extends PluginPanel {
         }
         memberPanels.keySet().retainAll(order);
         if (rebuild && group.isEmpty()) {
-            members.add(text("Your group members will appear here."));
+            members.add(emptyMembers);
         }
+        emptyMembers.setVisible(group.isEmpty() && companion.getStatus().isEmpty());
         members.revalidate();
         members.repaint();
     }

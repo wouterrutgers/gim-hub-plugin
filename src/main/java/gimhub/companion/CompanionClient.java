@@ -11,7 +11,9 @@ import gimhub.GimHubConfig;
 import gimhub.HttpRequestService;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -19,6 +21,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
+import java.util.function.IntConsumer;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import javax.swing.SwingUtilities;
@@ -33,6 +36,9 @@ import okhttp3.HttpUrl;
 @Slf4j
 @Singleton
 public class CompanionClient {
+    private static final int ITEM_LOOKUPS_PER_CALLBACK = 16;
+    private static final String SETUP_STATUS = "Enter your group name and token in settings.";
+
     @Inject
     private GimHubConfig config;
 
@@ -68,7 +74,7 @@ public class CompanionClient {
     private boolean visible;
     private boolean activityViewing;
     private boolean panelUpdateQueued;
-    private String status = "Enter your group name and token in the plugin settings.";
+    private String status = SETUP_STATUS;
 
     private static class Session {
         private final String context;
@@ -79,7 +85,7 @@ public class CompanionClient {
         private boolean loadingOlder;
         private boolean savingPins;
         private final Map<Integer, Boolean> desiredPins = new LinkedHashMap<>();
-        private String pinError = "";
+        private boolean pinSaveFailed;
         private String olderCursor;
         private boolean activityLoaded;
         private boolean preferencesLoaded;
@@ -89,6 +95,19 @@ public class CompanionClient {
             this.context = context;
             this.player = player;
             this.readState = readState;
+        }
+    }
+
+    private static class HttpFailure extends RuntimeException {
+        private final int code;
+
+        private HttpFailure(int code) {
+            super("HTTP " + code);
+            this.code = code;
+        }
+
+        private boolean isAuthorizationFailure() {
+            return code == 401 || code == 403;
         }
     }
 
@@ -137,7 +156,7 @@ public class CompanionClient {
                 || config.authorizationToken().trim().isEmpty()) {
             cancelRequests();
             session = null;
-            status = "Enter your group name and token in the plugin settings.";
+            status = SETUP_STATUS;
             notifyPanel();
             return;
         }
@@ -151,10 +170,10 @@ public class CompanionClient {
             notifyPanel();
         }
         Session current = session;
+        savePins(current);
         if (!visible || current.refreshing) {
             return;
         }
-        savePins(current);
         current.refreshing = true;
         List<CompletableFuture<?>> updates = new ArrayList<>();
         try {
@@ -173,11 +192,7 @@ public class CompanionClient {
                     .addQueryParameter("from_time", current.data.groupCursor())
                     .build();
             updates.add(get(current, groupUrl, result -> current.data.mergeMembers(result.getAsJsonArray()))
-                    .thenCompose(ignored -> CompletableFuture.allOf(
-                            loadPreferences(current),
-                            onClientThread(
-                                    current,
-                                    () -> current.data.updateItemData(itemManager::getItemPrice, this::itemName)))));
+                    .thenCompose(ignored -> CompletableFuture.allOf(loadPreferences(current), loadItemData(current))));
 
             String cursor = current.readState.getCursor();
             if (!current.activityLoaded) {
@@ -235,16 +250,26 @@ public class CompanionClient {
                     }
                     acceptPage.accept(page);
                 })
-                .thenCompose(ignored -> dropItems.isEmpty()
-                        ? CompletableFuture.completedFuture(null)
-                        : onClientThread(current, () -> current.data.updateItemNames(dropItems, this::itemName)));
+                .thenCompose(ignored -> lookupItems(
+                        current, dropItems, identifier -> current.data.updateItemName(identifier, this::itemName)));
+    }
+
+    private CompletableFuture<Void> loadItemData(Session current) {
+        return lookupItems(current, current.data.itemsNeedingPrices(), identifier -> {
+            current.data.updateItemName(identifier, this::itemName);
+            current.data.setItemPrice(identifier, itemManager.getItemPrice(identifier));
+        });
     }
 
     private String itemName(int identifier) {
         return itemManager.getItemComposition(identifier).getMembersName();
     }
 
-    private CompletableFuture<Void> onClientThread(Session current, Runnable action) {
+    private CompletableFuture<Void> lookupItems(Session current, Collection<Integer> identifiers, IntConsumer lookup) {
+        if (identifiers.isEmpty()) {
+            return CompletableFuture.completedFuture(null);
+        }
+        Iterator<Integer> remaining = identifiers.iterator();
         CompletableFuture<Void> updated = new CompletableFuture<>();
         clientThread.invokeLater(() -> {
             synchronized (CompanionClient.this) {
@@ -256,7 +281,12 @@ public class CompanionClient {
                     return false;
                 }
                 try {
-                    action.run();
+                    for (int count = 0; count < ITEM_LOOKUPS_PER_CALLBACK && remaining.hasNext(); count++) {
+                        lookup.accept(remaining.next());
+                    }
+                    if (remaining.hasNext()) {
+                        return false;
+                    }
                     updated.complete(null);
                 } catch (RuntimeException error) {
                     updated.completeExceptionally(error);
@@ -362,12 +392,11 @@ public class CompanionClient {
                     synchronized (CompanionClient.this) {
                         if (isCurrent(current)) {
                             current.savingPins = false;
-                            current.pinError =
-                                    error == null ? "" : "Could not save pinned items. Retrying automatically.";
+                            current.pinSaveFailed = error != null;
                             if (error != null) {
                                 log.debug("Could not save pinned items", error);
                             }
-                            report(null);
+                            notifyPanel();
                             if (error == null) {
                                 savePins(current);
                             }
@@ -387,11 +416,7 @@ public class CompanionClient {
         requests.add(response);
         return response.thenAccept(result -> {
                     if (!result.isSuccessful()) {
-                        throw new IllegalStateException(
-                                result.getCode() == 401 || result.getCode() == 403
-                                        ? "The server rejected the group credentials. Check the plugin settings."
-                                        : "Could not load companion data (HTTP " + result.getCode()
-                                                + "). Retrying automatically.");
+                        throw new HttpFailure(result.getCode());
                     }
                     JsonElement json = gson.fromJson(result.getBody(), JsonElement.class);
                     synchronized (CompanionClient.this) {
@@ -430,12 +455,12 @@ public class CompanionClient {
             error = error.getCause();
         }
         if (error == null) {
-            status = session == null ? "" : session.pinError;
+            status = "";
         } else {
             log.debug("Could not refresh the GIM Hub companion", error);
-            status = error instanceof IllegalStateException
-                    ? error.getMessage()
-                    : "Could not load companion data. Retrying automatically.";
+            status = error instanceof HttpFailure && ((HttpFailure) error).isAuthorizationFailure()
+                    ? "Check the group name and token in settings."
+                    : "Could not load data.";
         }
         notifyPanel();
     }
@@ -460,7 +485,7 @@ public class CompanionClient {
     }
 
     public synchronized String getStatus() {
-        return status;
+        return status.isEmpty() && session != null && session.pinSaveFailed ? "Could not save pins." : status;
     }
 
     public synchronized int getUnreadCount() {

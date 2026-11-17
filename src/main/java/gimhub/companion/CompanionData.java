@@ -17,8 +17,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.function.IntFunction;
-import java.util.function.IntToLongFunction;
 import java.util.stream.Collectors;
 import lombok.Value;
 import net.runelite.api.Experience;
@@ -51,6 +51,7 @@ public class CompanionData {
             "Woodcutting",
             "Sailing");
     private static final Map<String, String> CONTAINERS = new LinkedHashMap<>();
+    private static final long ITEM_PRICE_TTL_NANOS = TimeUnit.HOURS.toNanos(4);
 
     static {
         for (String key : Arrays.asList(
@@ -109,27 +110,26 @@ public class CompanionData {
         CONTAINERS.put("hallowed_sepulchre", "Hallowed Sepulchre");
     }
 
-    private final Map<Integer, JsonObject> members = new LinkedHashMap<>();
+    private Map<Integer, JsonObject> members = new LinkedHashMap<>();
     private final Map<Long, JsonObject> activities = new LinkedHashMap<>();
     private JsonObject metadata = new JsonObject();
-    private Map<Integer, Long> itemPrices = new HashMap<>();
+    private final Map<Integer, CachedPrice> itemPrices = new HashMap<>();
     private final Map<Integer, String> itemNames = new HashMap<>();
     private Set<Integer> pinnedItems = new HashSet<>();
 
     public synchronized void mergeMembers(JsonArray updates) {
-        Set<Integer> present = new HashSet<>();
+        Map<Integer, JsonObject> ordered = new LinkedHashMap<>();
         for (JsonElement element : updates) {
             JsonObject update = element.getAsJsonObject();
             int identifier = update.get("id").getAsInt();
-            present.add(identifier);
             JsonObject previous = members.get(identifier);
             JsonObject member = previous == null ? new JsonObject() : previous.deepCopy();
             update.entrySet().stream()
                     .filter(entry -> !entry.getValue().isJsonNull())
                     .forEach(entry -> member.add(entry.getKey(), entry.getValue()));
-            members.put(identifier, member);
+            ordered.put(identifier, member);
         }
-        members.keySet().retainAll(present);
+        members = ordered;
     }
 
     public synchronized String groupCursor() {
@@ -208,18 +208,22 @@ public class CompanionData {
         this.metadata = metadata;
     }
 
-    public synchronized void updateItemData(IntToLongFunction priceLookup, IntFunction<String> nameLookup) {
-        Map<Integer, Long> prices = new HashMap<>();
-        Set<Integer> heldItems = holdings("All players", "All storage").keySet();
-        updateItemNames(heldItems, nameLookup);
-        heldItems.forEach(identifier -> prices.put(identifier, priceLookup.applyAsLong(identifier)));
-        itemPrices = prices;
+    synchronized List<Integer> itemsNeedingPrices() {
+        long now = System.nanoTime();
+        return holdings("All players", "All storage").keySet().stream()
+                .filter(identifier -> {
+                    CachedPrice price = itemPrices.get(identifier);
+                    return price == null || now - price.lookedUpAt >= ITEM_PRICE_TTL_NANOS;
+                })
+                .collect(Collectors.toList());
     }
 
-    synchronized void updateItemNames(Set<Integer> identifiers, IntFunction<String> nameLookup) {
-        for (int identifier : identifiers) {
-            itemNames.computeIfAbsent(identifier, nameLookup::apply);
-        }
+    synchronized void setItemPrice(int identifier, long price) {
+        itemPrices.put(identifier, new CachedPrice(price, System.nanoTime()));
+    }
+
+    synchronized void updateItemName(int identifier, IntFunction<String> nameLookup) {
+        itemNames.computeIfAbsent(identifier, nameLookup::apply);
     }
 
     public synchronized boolean hasMetadata() {
@@ -255,11 +259,16 @@ public class CompanionData {
                 .filter(item -> Arrays.stream(search.split("\\s+"))
                         .allMatch(word -> item.name.toLowerCase(Locale.ROOT).contains(word)))
                 .sorted(Comparator.comparing((StockItem item) -> !pinnedItems.contains(item.identifier))
-                        .thenComparing(Comparator.comparingDouble((StockItem item) ->
-                                        itemPrices.getOrDefault(item.identifier, 0L) * (double) item.total())
+                        .thenComparing(Comparator.comparingDouble(
+                                        (StockItem item) -> itemPrice(item.identifier) * (double) item.total())
                                 .reversed())
                         .thenComparing(StockItem::getName, String.CASE_INSENSITIVE_ORDER))
                 .collect(Collectors.toList());
+    }
+
+    private long itemPrice(int identifier) {
+        CachedPrice price = itemPrices.get(identifier);
+        return price == null ? 0 : price.value;
     }
 
     private Map<Integer, List<Holding>> holdings(String memberFilter, String containerFilter) {
@@ -489,6 +498,12 @@ public class CompanionData {
             default:
                 return activityText(entry);
         }
+    }
+
+    @Value
+    private static class CachedPrice {
+        long value;
+        long lookedUpAt;
     }
 
     @Value

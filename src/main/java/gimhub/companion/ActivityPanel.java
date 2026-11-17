@@ -217,11 +217,8 @@ public class ActivityPanel extends JPanel {
         }
         if (client.isLoadingOlder()) {
             nextRows.add(new Row("loading", "Loading older activity...", null));
-        } else if (entries.isEmpty()) {
-            nextRows.add(new Row(
-                    "empty",
-                    newOnly.isSelected() ? "No new activity since your last visit." : "No matching activity.",
-                    null));
+        } else if (entries.isEmpty() && client.getStatus().isEmpty()) {
+            nextRows.add(new Row("empty", newOnly.isSelected() ? "No new activity" : "No matching activity", null));
         }
         List<String> nextSignatures = nextRows.stream()
                 .map(row -> row.entry == null

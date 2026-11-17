@@ -102,7 +102,7 @@ public class ItemsPanel extends JPanel {
         CompanionStyle.input(search);
         CompanionStyle.choice(player);
         CompanionStyle.choice(storage);
-        search.putClientProperty("JTextField.placeholderText", "Search group items...");
+        search.putClientProperty("JTextField.placeholderText", "Search items");
         search.getAccessibleContext().setAccessibleName("Search group items");
         search.setMaximumSize(new Dimension(Integer.MAX_VALUE, search.getPreferredSize().height));
         filters.add(search);
@@ -296,7 +296,7 @@ public class ItemsPanel extends JPanel {
         List<StockItem> results =
                 data.items((String) player.getSelectedItem(), (String) storage.getSelectedItem(), search.getText());
         count.setText(QuantityFormatter.formatNumber(results.size()) + (results.size() == 1 ? " item" : " items"));
-        empty.setText("No matching items.");
+        count.setVisible(!results.isEmpty());
         empty.setVisible(results.isEmpty() && client.getStatus().isEmpty());
         if (!displayed.equals(results) || resetScroll) {
             Point position =
@@ -414,10 +414,13 @@ public class ItemsPanel extends JPanel {
     private String pinTooltip(StockItem item) {
         String name = client.getPinPlayerName();
         if (name == null) {
-            return "Log in as a group member to sync pinned items";
+            return "Log in as a group member to pin items";
         }
-        if (!client.canPin() || client.isPinPending(item.getIdentifier())) {
-            return "Syncing pinned items for " + name;
+        if (client.isPinPending(item.getIdentifier())) {
+            return "Pin change pending";
+        }
+        if (!client.canPin()) {
+            return "Loading pins...";
         }
         return (client.isPinned(item.getIdentifier()) ? "Unpin for " : "Pin for ") + name;
     }

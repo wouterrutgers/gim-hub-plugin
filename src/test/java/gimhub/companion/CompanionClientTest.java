@@ -44,10 +44,11 @@ public class CompanionClientTest {
     private final CompletableFuture<Void> oldRequest = new CompletableFuture<>();
     private final CompletableFuture<Void> releaseOldRequest = new CompletableFuture<>();
     private final AtomicBoolean holdPinSave = new AtomicBoolean();
+    private final AtomicBoolean failPinSave = new AtomicBoolean();
     private final CompletableFuture<Void> pinSaveRequested = new CompletableFuture<>();
     private final CompletableFuture<Void> releasePinSave = new CompletableFuture<>();
     private volatile CompletableFuture<Void> refreshed;
-    private volatile BooleanSupplier refreshReady = () -> true;
+    private volatile BooleanSupplier refreshReady;
     private MockWebServer server;
     private CompanionClient companion;
     private GimHubConfig config;
@@ -82,7 +83,9 @@ public class CompanionClientTest {
                             }
                         }
                         boolean incremental = groupReads.getAndIncrement() > 0;
-                        response = "[" + player(1, "Alice", incremental) + "," + player(2, "Bob", false)
+                        String alice = player(1, "Alice", incremental);
+                        String bob = player(2, "Bob", false);
+                        response = "[" + (incremental ? bob + "," + alice : alice + "," + bob)
                                 + ",{id:3,name:'@SHARED',bank:[4151,3],last_updated:'2026-11-15T10:00:00Z'}]";
                     }
                 } else if (path.endsWith("/activity")) {
@@ -97,6 +100,9 @@ public class CompanionClientTest {
                                     + "from_time:'2026-11-15T10:00:00Z',older_cursor:null}";
                 } else if (path.endsWith("/preferences")) {
                     if (request.getMethod().equals("PATCH")) {
+                        if (failPinSave.compareAndSet(true, false)) {
+                            return new MockResponse().setResponseCode(503);
+                        }
                         if (holdPinSave.compareAndSet(true, false)) {
                             pinSaveRequested.complete(null);
                             try {
@@ -161,11 +167,9 @@ public class CompanionClientTest {
         inject(companion, "client", client);
         inject(companion, "clientThread", clientThread);
         inject(companion, "itemManager", itemManager);
+        refreshReady = () -> companion.getStatus().isEmpty() && companion.canPin();
         companion.start(() -> {
-            if (companion.getStatus().isEmpty()
-                    && companion.canPin()
-                    && refreshReady.getAsBoolean()
-                    && refreshed != null) {
+            if (refreshed != null && refreshReady.getAsBoolean()) {
                 refreshed.complete(null);
             }
         });
@@ -187,7 +191,7 @@ public class CompanionClientTest {
         CompanionData data = companion.getData();
 
         assertEquals(7, data.items("All players", "All storage", "whip").get(0).total());
-        assertEquals(2, data.players().size());
+        assertEquals(List.of(data.player("Alice"), data.player("Bob")), data.players());
         assertEquals(2, data.activities().size());
         assertEquals("Abyssal whip", data.itemName(4151));
         assertTrue(data.activityText(data.activities().get(1)).contains("Bandos godsword"));
@@ -205,14 +209,18 @@ public class CompanionClientTest {
         assertTrue(data.activityText(data.activities().get(2)).contains("Amulet of fury"));
 
         when(itemManager.getItemPrice(4151)).thenReturn(1000L);
+        refreshReady = () -> data.player("Alice").getAsJsonArray("inventory").size() == 0
+                && companion.getStatus().isEmpty();
         refreshed = new CompletableFuture<>();
         companion.refresh();
         refreshed.get(5, TimeUnit.SECONDS);
-        assertEquals(4151, data.items("All players", "All storage", "").get(0).getIdentifier());
+        assertEquals(List.of(data.player("Bob"), data.player("Alice")), data.players());
+        assertEquals(385, data.items("All players", "All storage", "").get(0).getIdentifier());
 
         preferences
                 .getAsJsonObject("preferences")
                 .add("pinnedItemIds", gson.toJsonTree(Collections.singletonList(385)));
+        refreshReady = () -> data.pinnedItems().equals(Collections.singleton(385));
         refreshed = new CompletableFuture<>();
         refreshReady = () -> !companion.isPinPending(4151);
         companion.togglePin(4151);
@@ -280,6 +288,30 @@ public class CompanionClientTest {
         refreshed.get(5, TimeUnit.SECONDS);
 
         assertEquals(Collections.singleton(385), companion.getData().pinnedItems());
+    }
+
+    @Test
+    public void retriesPendingPinWhileSidebarIsHidden() throws Exception {
+        refreshed = new CompletableFuture<>();
+        companion.setVisible(true);
+        refreshed.get(5, TimeUnit.SECONDS);
+
+        failPinSave.set(true);
+        refreshReady = () -> !companion.getStatus().isEmpty();
+        refreshed = new CompletableFuture<>();
+        companion.togglePin(4151);
+        refreshed.get(5, TimeUnit.SECONDS);
+        assertTrue(companion.isPinPending(4151));
+        companion.setVisible(false);
+
+        refreshReady =
+                () -> !companion.isPinPending(4151) && companion.getStatus().isEmpty();
+        refreshed = new CompletableFuture<>();
+        companion.refresh();
+        refreshed.get(5, TimeUnit.SECONDS);
+
+        assertEquals(Collections.singleton(4151), companion.getData().pinnedItems());
+        assertEquals(1, groupReads.get());
     }
 
     private String player(int identifier, String name, boolean incremental) {

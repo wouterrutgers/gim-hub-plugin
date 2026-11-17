@@ -115,9 +115,10 @@ public class HttpRequestService {
     }
 
     private Request.Builder buildRequest(String url, String authToken) {
-        Request.Builder requestBuilder = new Request.Builder().url(url).header("User-Agent", USER_AGENT);
+        HttpUrl requestUrl = HttpUrl.get(url);
+        Request.Builder requestBuilder = new Request.Builder().url(requestUrl).header("User-Agent", USER_AGENT);
 
-        if (isInternalUrl(url)) {
+        if (isInternalUrl(requestUrl)) {
             if (authToken != null && !authToken.trim().isEmpty()) {
                 requestBuilder.header("Authorization", authToken);
             }
@@ -127,8 +128,16 @@ public class HttpRequestService {
         return requestBuilder;
     }
 
-    private boolean isInternalUrl(String url) {
-        return url.startsWith(getBaseUrl());
+    private boolean isInternalUrl(HttpUrl url) {
+        HttpUrl baseUrl = HttpUrl.parse(getBaseUrl());
+        if (baseUrl == null
+                || !url.scheme().equals(baseUrl.scheme())
+                || !url.host().equals(baseUrl.host())
+                || url.port() != baseUrl.port()) {
+            return false;
+        }
+        String path = baseUrl.encodedPath();
+        return url.encodedPath().equals(path) || url.encodedPath().startsWith(path.endsWith("/") ? path : path + "/");
     }
 
     private HttpResponse executeRequest(Request request, String method, String url, String requestBody) {
