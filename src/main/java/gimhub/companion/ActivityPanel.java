@@ -45,6 +45,7 @@ import javax.swing.ListSelectionModel;
 import javax.swing.ScrollPaneConstants;
 import javax.swing.SwingUtilities;
 import net.runelite.api.Skill;
+import net.runelite.api.gameval.SpriteID;
 import net.runelite.client.game.SkillIconManager;
 import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.PluginPanel;
@@ -61,6 +62,7 @@ public class ActivityPanel extends JPanel {
     private final CompanionClient client;
     private final SkillIconManager skillIcons;
     private final BiFunction<Integer, Long, ImageIcon> itemIcons;
+    private final BiFunction<Integer, Integer, ImageIcon> spriteIcons;
     private final JComboBox<String> filter = new JComboBox<>(FILTERS.toArray(new String[0]));
     private final JCheckBox newOnly = new JCheckBox("New only");
     private final JCheckBox filterDrops = new JCheckBox("Filter drops", true);
@@ -84,8 +86,12 @@ public class ActivityPanel extends JPanel {
     private long renderVersion;
 
     public ActivityPanel(
-            CompanionClient client, SkillIconManager skillIcons, BiFunction<Integer, Long, ImageIcon> itemIcons) {
+            CompanionClient client,
+            SkillIconManager skillIcons,
+            BiFunction<Integer, Long, ImageIcon> itemIcons,
+            BiFunction<Integer, Integer, ImageIcon> spriteIcons) {
         this.client = client;
+        this.spriteIcons = spriteIcons;
         this.skillIcons = skillIcons;
         this.itemIcons = itemIcons;
         setLayout(new BorderLayout(0, CompanionStyle.GAP));
@@ -360,11 +366,11 @@ public class ActivityPanel extends JPanel {
             case "boss":
                 return new ImageIcon(skillIcons.getSkillImage(Skill.SLAYER, true));
             case "quest":
-                return new ImageIcon(MemberPanel.artwork("quests.png"));
+                return spriteIcons.apply(SpriteID.SideiconsInterface.QUESTS, 0);
             case "diary":
-                return new ImageIcon(MemberPanel.artwork("diaries.png"));
+                return spriteIcons.apply(SpriteID.SideIcons.ACHIEVEMENT_DIARIES, 0);
             default:
-                return new ImageIcon(MemberPanel.artwork("stats.png"));
+                return spriteIcons.apply(SpriteID.PopoutIcons._2, 0);
         }
     }
 

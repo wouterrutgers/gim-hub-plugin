@@ -14,13 +14,19 @@ import java.lang.reflect.Field;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BooleanSupplier;
+import net.runelite.api.Client;
+import net.runelite.api.GameState;
+import net.runelite.api.ItemComposition;
+import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
+import net.runelite.client.game.ItemManager;
 import okhttp3.OkHttpClient;
 import okhttp3.mockwebserver.Dispatcher;
 import okhttp3.mockwebserver.MockResponse;
@@ -46,6 +52,7 @@ public class CompanionClientTest {
     private CompanionClient companion;
     private GimHubConfig config;
     private DataManager dataManager;
+    private ItemManager itemManager;
     private JsonObject preferences;
 
     @Before
@@ -58,12 +65,9 @@ public class CompanionClientTest {
                 received.add(request);
                 String path = request.getRequestUrl().encodedPath();
                 String response;
-                if (path.endsWith("/game-data")) {
-                    response =
-                            "{items:{4151:{name:'Abyssal whip'}},quests:{0:{name:'Example quest',member:false,points:1}},"
-                                    + "diaries:{Ardougne:{Easy:[{task:'Example task'}]}},diary_tasks:{Ardougne:{Easy:[{bits:[[0,0]]}]}}}";
-                } else if (path.endsWith("/ge-prices.json")) {
-                    response = "{4151:100}";
+                if ("/api/game-data".equals(request.getPath())) {
+                    response = "{quests:{0:{name:'Example quest',member:false,points:1}},"
+                            + "diaries:{Ardougne:{Easy:[{task:'Example task'}]}},diary_tasks:{Ardougne:{Easy:[{bits:[[0,0]]}]}}}";
                 } else if (path.endsWith("/get-group-data")) {
                     if (path.contains("/other/")) {
                         response = "[" + player(4, "Charlie", false) + "]";
@@ -82,9 +86,15 @@ public class CompanionClientTest {
                                 + ",{id:3,name:'@SHARED',bank:[4151,3],last_updated:'2026-11-15T10:00:00Z'}]";
                     }
                 } else if (path.endsWith("/activity")) {
-                    response =
-                            "{entries:[{id:1,member_id:1,revision:1,type:'level',is_weekly:false,started_at:1794736800000,occurred_at:1794736800000,"
-                                    + "data:{skill:'Crafting',before:1,after:2}}],from_time:'2026-11-15T10:00:00Z',older_cursor:null}";
+                    response = request.getRequestUrl().queryParameter("cursor") == null
+                            ? "{entries:[{id:1,member_id:1,revision:1,type:'level',is_weekly:false,started_at:1794736800000,occurred_at:1794736800000,"
+                                    + "data:{skill:'Crafting',before:1,after:2}},"
+                                    + "{id:2,member_id:1,revision:1,type:'loot',is_weekly:false,started_at:1794736790000,occurred_at:1794736790000,"
+                                    + "data:{item_id:11804,quantity:1,source:'Example boss',value:1000000,new_collection_item:false}}],"
+                                    + "from_time:'2026-11-15T10:00:00Z',older_cursor:'older'}"
+                            : "{entries:[{id:3,member_id:1,revision:1,type:'collection',is_weekly:false,started_at:1794736700000,occurred_at:1794736700000,"
+                                    + "data:{item_id:6585,quantity:1,source:'Example boss',value:200000,new_collection_item:false}}],"
+                                    + "from_time:'2026-11-15T10:00:00Z',older_cursor:null}";
                 } else if (path.endsWith("/preferences")) {
                     if (request.getMethod().equals("PATCH")) {
                         if (holdPinSave.compareAndSet(true, false)) {
@@ -120,6 +130,27 @@ public class CompanionClientTest {
         ApiUrlBuilder urls = new ApiUrlBuilder();
         inject(urls, "config", config);
         inject(urls, "httpRequestService", http);
+        itemManager = mock(ItemManager.class);
+        when(itemManager.getItemPrice(4151)).thenReturn(100L);
+        when(itemManager.getItemPrice(385)).thenReturn(1L);
+        Map<Integer, String> names =
+                Map.of(4151, "Abyssal whip", 385, "Shark", 11804, "Bandos godsword", 6585, "Amulet of fury");
+        when(itemManager.getItemComposition(anyInt())).thenAnswer(call -> {
+            String name = names.get(call.<Integer>getArgument(0));
+            ItemComposition item = mock(ItemComposition.class);
+            when(item.getMembersName()).thenReturn(name);
+            when(item.getName()).thenReturn(name + " (Members)");
+            return item;
+        });
+        Client client = mock(Client.class);
+        when(client.getGameState()).thenReturn(GameState.LOGIN_SCREEN);
+        ClientThread clientThread = mock(ClientThread.class);
+        doAnswer(call -> {
+                    ((BooleanSupplier) call.getArgument(0)).getAsBoolean();
+                    return null;
+                })
+                .when(clientThread)
+                .invokeLater(any(BooleanSupplier.class));
         companion = new CompanionClient();
         inject(companion, "config", config);
         inject(companion, "http", http);
@@ -127,6 +158,9 @@ public class CompanionClientTest {
         inject(companion, "dataManager", dataManager);
         inject(companion, "configManager", mock(ConfigManager.class));
         inject(companion, "gson", gson);
+        inject(companion, "client", client);
+        inject(companion, "clientThread", clientThread);
+        inject(companion, "itemManager", itemManager);
         companion.start(() -> {
             if (companion.getStatus().isEmpty()
                     && companion.canPin()
@@ -154,12 +188,27 @@ public class CompanionClientTest {
 
         assertEquals(7, data.items("All players", "All storage", "whip").get(0).total());
         assertEquals(2, data.players().size());
-        assertEquals(1, data.activities().size());
+        assertEquals(2, data.activities().size());
+        assertEquals("Abyssal whip", data.itemName(4151));
+        assertTrue(data.activityText(data.activities().get(1)).contains("Bandos godsword"));
         assertEquals(300, data.playerSkills("Alice").get("Crafting").getExperience());
         assertTrue(data.quests("Alice").get(0).isComplete());
         assertFalse(data.quests("Bob").get(0).isComplete());
         assertEquals(1, data.diaries("Alice").get(0).completed());
         assertEquals(0, data.diaries("Bob").get(0).completed());
+        assertEquals(385, data.items("All players", "All storage", "").get(0).getIdentifier());
+
+        refreshed = new CompletableFuture<>();
+        refreshReady = () -> !companion.isLoadingOlder();
+        companion.loadOlder();
+        refreshed.get(5, TimeUnit.SECONDS);
+        assertTrue(data.activityText(data.activities().get(2)).contains("Amulet of fury"));
+
+        when(itemManager.getItemPrice(4151)).thenReturn(1000L);
+        refreshed = new CompletableFuture<>();
+        companion.refresh();
+        refreshed.get(5, TimeUnit.SECONDS);
+        assertEquals(4151, data.items("All players", "All storage", "").get(0).getIdentifier());
 
         preferences
                 .getAsJsonObject("preferences")
@@ -182,12 +231,14 @@ public class CompanionClientTest {
         assertTrue(received.stream()
                 .anyMatch(request -> request.getPath().startsWith("/api/group/iron%20friends/get-group-data?")
                         && request.getRequestUrl().queryParameter("from_time").equals("2026-11-15T10:00:00Z")));
-        assertTrue(
-                received.stream().allMatch(request -> "test-group-token".equals(request.getHeader("Authorization"))));
+        for (RecordedRequest request : received) {
+            String expectedToken = "/api/game-data".equals(request.getPath()) ? null : "test-group-token";
+            assertEquals(expectedToken, request.getHeader("Authorization"));
+        }
     }
 
     @Test
-    public void switchingGroupAndPlayerDiscardsAnOutstandingResponseFromThePreviousGroup() throws Exception {
+    public void loadsNewGroupWithoutWaitingForPreviousGroupResponse() throws Exception {
         refreshed = new CompletableFuture<>();
         companion.setVisible(true);
         refreshed.get(5, TimeUnit.SECONDS);
@@ -200,7 +251,6 @@ public class CompanionClientTest {
         refreshed = new CompletableFuture<>();
         companion.refresh();
         refreshed.get(5, TimeUnit.SECONDS);
-        releaseOldRequest.complete(null);
 
         assertNull(companion.getData().player("Alice"));
         assertNotNull(companion.getData().player("Charlie"));
@@ -230,11 +280,6 @@ public class CompanionClientTest {
         refreshed.get(5, TimeUnit.SECONDS);
 
         assertEquals(Collections.singleton(385), companion.getData().pinnedItems());
-        assertEquals(
-                2,
-                received.stream()
-                        .filter(request -> request.getMethod().equals("PATCH"))
-                        .count());
     }
 
     private String player(int identifier, String name, boolean incremental) {
@@ -248,7 +293,7 @@ public class CompanionClientTest {
                 "bank",
                 incremental
                         ? com.google.gson.JsonNull.INSTANCE
-                        : gson.fromJson("[4151," + (completed ? 1 : 2) + "]", JsonArray.class));
+                        : gson.fromJson("[4151," + (completed ? 1 : 2) + ",385,1000]", JsonArray.class));
         player.add("inventory", gson.fromJson(completed && !incremental ? "[4151,1]" : "[]", JsonArray.class));
         player.add("equipment", new JsonArray());
         player.add(

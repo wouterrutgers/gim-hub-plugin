@@ -55,11 +55,13 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import net.runelite.api.EquipmentInventorySlot;
 import net.runelite.api.Skill;
+import net.runelite.api.gameval.SpriteID;
 import net.runelite.client.game.SkillIconManager;
 import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.PluginPanel;
 import net.runelite.client.util.ImageUtil;
 import net.runelite.client.util.LinkBrowser;
+import net.runelite.client.util.QuantityFormatter;
 
 public class MemberPanel extends JPanel {
     private static final int INTERACTION_LIFETIME_SECONDS = 30;
@@ -114,20 +116,25 @@ public class MemberPanel extends JPanel {
         {70, 158},
         {126, 158}
     };
-    private static final int[] EMPTY_EQUIPMENT_ICONS = {156, 157, 158, 166, 159, 161, 162, 163, 164, 165, 160};
+    private static final int[] EMPTY_EQUIPMENT_ICONS = {
+        SpriteID.Wornicons.HEAD, SpriteID.Wornicons.CAPE, SpriteID.Wornicons.NECK,
+        SpriteID.Wornicons.AMMUNITION, SpriteID.Wornicons.WEAPON, SpriteID.Wornicons.TORSO,
+        SpriteID.Wornicons.SHIELD, SpriteID.Wornicons.LEGS, SpriteID.Wornicons.HANDS,
+        SpriteID.Wornicons.FEET, SpriteID.Wornicons.RING
+    };
 
     public enum View {
-        INVENTORY("Inventory", "inventory.png", "inventory"),
-        EQUIPMENT("Equipment", "equipment.png", "equipment"),
-        STATS("Stats", "stats.png", "skills"),
-        QUESTS("Quests", "quests.png", "quests"),
-        DIARIES("Achievement diaries", "diaries.png", "diary_vars");
+        INVENTORY("Inventory", SpriteID.SideiconsInterface.INVENTORY, "inventory"),
+        EQUIPMENT("Equipment", SpriteID.SideiconsInterface.EQUIPMENT, "equipment"),
+        STATS("Stats", SpriteID.PopoutIcons._2, "skills"),
+        QUESTS("Quests", SpriteID.SideiconsInterface.QUESTS, "quests"),
+        DIARIES("Achievement diaries", SpriteID.SideIcons.ACHIEVEMENT_DIARIES, "diary_vars");
 
         private final String label;
-        private final String icon;
+        private final int icon;
         private final String property;
 
-        View(String label, String icon, String property) {
+        View(String label, int icon, String property) {
             this.label = label;
             this.icon = icon;
             this.property = property;
@@ -135,6 +142,7 @@ public class MemberPanel extends JPanel {
     }
 
     private final BiFunction<Integer, Long, ImageIcon> itemIcons;
+    private final BiFunction<Integer, Integer, ImageIcon> spriteIcons;
     private final SkillIconManager skillIcons;
     private final JLabel playerIcon = new JLabel();
     private final JLabel name = label("");
@@ -166,8 +174,12 @@ public class MemberPanel extends JPanel {
     private boolean updating;
     private boolean metadataReady;
 
-    public MemberPanel(BiFunction<Integer, Long, ImageIcon> itemIcons, SkillIconManager skillIcons) {
+    public MemberPanel(
+            BiFunction<Integer, Long, ImageIcon> itemIcons,
+            SkillIconManager skillIcons,
+            BiFunction<Integer, Integer, ImageIcon> spriteIcons) {
         this.itemIcons = itemIcons;
+        this.spriteIcons = spriteIcons;
         this.skillIcons = skillIcons;
         setLayout(new BorderLayout());
         setMinimumSize(new Dimension(0, 0));
@@ -203,9 +215,7 @@ public class MemberPanel extends JPanel {
                 BorderFactory.createMatteBorder(1, 0, 0, 0, CompanionStyle.BORDER),
                 BorderFactory.createEmptyBorder(4, 4, 4, 4)));
         for (View view : View.values()) {
-            BufferedImage image = artwork(view.icon);
-            JToggleButton button = new JToggleButton(new ImageIcon(
-                    ImageUtil.resizeImage(image, Math.round(24f * image.getWidth() / image.getHeight()), 24)));
+            JToggleButton button = new JToggleButton(spriteIcons.apply(view.icon, 24));
             button.setToolTipText(view.label);
             button.getAccessibleContext().setAccessibleName(view.label);
             CompanionStyle.iconButton(button);
@@ -324,7 +334,7 @@ public class MemberPanel extends JPanel {
             return;
         }
         body.setBorder(BorderFactory.createEmptyBorder(8, 4, 8, 4));
-        if (!data.hasMetadata()) {
+        if ((selectedView == View.QUESTS || selectedView == View.DIARIES) && !data.hasMetadata()) {
             body.add(note("Loading game data..."));
         } else if (selectedView == View.INVENTORY || selectedView == View.EQUIPMENT) {
             JPanel centered = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
@@ -644,7 +654,8 @@ public class MemberPanel extends JPanel {
                     int identifier = identifier(slot);
                     if (identifier > 0 && items().get(2 * slot + 1).getAsLong() > 0) {
                         contents.add(data.itemName(identifier) + ", quantity "
-                                + number(items().get(2 * slot + 1).getAsLong()));
+                                + QuantityFormatter.formatNumber(
+                                        items().get(2 * slot + 1).getAsLong()));
                     }
                 }
             }
@@ -698,7 +709,8 @@ public class MemberPanel extends JPanel {
             int identifier = identifier(slot);
             return identifier > 0
                     ? data.itemName(identifier) + " x "
-                            + number(items().get(2 * slot + 1).getAsLong())
+                            + QuantityFormatter.formatNumber(
+                                    items().get(2 * slot + 1).getAsLong())
                     : null;
         }
 
@@ -728,7 +740,7 @@ public class MemberPanel extends JPanel {
                         image.paintIcon(this, graphics, x, y + 2);
                     }
                     if (quantity > 1) {
-                        String label = shortQuantity(quantity);
+                        String label = QuantityFormatter.quantityToStackSize(quantity);
                         graphics.setColor(Color.BLACK);
                         graphics.drawString(label, x + 2, y + 12);
                         graphics.setColor(
@@ -736,8 +748,9 @@ public class MemberPanel extends JPanel {
                         graphics.drawString(label, x + 1, y + 11);
                     }
                 } else if (!inventory) {
-                    BufferedImage empty = artwork("slot-" + EMPTY_EQUIPMENT_ICONS[index] + ".png");
-                    graphics.drawImage(empty, x + (36 - empty.getWidth()) / 2, y + (36 - empty.getHeight()) / 2, null);
+                    ImageIcon empty = spriteIcons.apply(EMPTY_EQUIPMENT_ICONS[index], 0);
+                    empty.paintIcon(
+                            this, graphics, x + (36 - empty.getIconWidth()) / 2, y + (36 - empty.getIconHeight()) / 2);
                 }
             }
         }
@@ -756,7 +769,7 @@ public class MemberPanel extends JPanel {
                                     ? "Stats not synced yet"
                                     : progress.values().stream()
                                             .map(skill -> skill.getName() + ", level " + skill.getLevel() + ", "
-                                                    + number(skill.getExperience()) + " XP")
+                                                    + QuantityFormatter.formatNumber(skill.getExperience()) + " XP")
                                             .collect(Collectors.joining("; ")));
         }
 
@@ -765,16 +778,17 @@ public class MemberPanel extends JPanel {
             int index = event.getY() / 32 * 3 + event.getX() / 62;
             if (index >= SKILL_ORDER.size()) {
                 return "Total XP: "
-                        + number(data.playerSkills(CompanionData.displayName(member)).values().stream()
-                                .mapToLong(SkillProgress::getExperience)
-                                .sum());
+                        + QuantityFormatter.formatNumber(
+                                data.playerSkills(CompanionData.displayName(member)).values().stream()
+                                        .mapToLong(SkillProgress::getExperience)
+                                        .sum());
             }
             SkillProgress skill =
                     data.playerSkills(CompanionData.displayName(member)).get(SKILL_ORDER.get(index));
             return skill == null
                     ? "Not synced yet"
-                    : skill.getName() + ": " + number(skill.getExperience()) + " XP (" + number(skill.getRemaining())
-                            + " to next level)";
+                    : skill.getName() + ": " + QuantityFormatter.formatNumber(skill.getExperience()) + " XP ("
+                            + QuantityFormatter.formatNumber(skill.getRemaining()) + " to next level)";
         }
 
         @Override
@@ -947,15 +961,5 @@ public class MemberPanel extends JPanel {
 
     private static String questStatus(int state) {
         return state == 2 ? "Complete" : state == 0 ? "In progress" : state == 1 ? "Not started" : "Not synced";
-    }
-
-    private static String shortQuantity(long quantity) {
-        return quantity >= 10_000_000
-                ? quantity / 1_000_000 + "M"
-                : quantity >= 100_000 ? quantity / 1_000 + "K" : Long.toString(quantity);
-    }
-
-    private static String number(long value) {
-        return String.format("%,d", value);
     }
 }

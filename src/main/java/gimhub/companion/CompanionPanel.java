@@ -7,6 +7,7 @@ import java.awt.Color;
 import java.awt.Component;
 import java.awt.Graphics;
 import java.awt.Rectangle;
+import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -22,17 +23,22 @@ import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
 import javax.swing.JTextArea;
 import javax.swing.ScrollPaneConstants;
+import javax.swing.SwingUtilities;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.game.SkillIconManager;
+import net.runelite.client.game.SpriteManager;
 import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.PluginPanel;
 import net.runelite.client.util.AsyncBufferedImage;
+import net.runelite.client.util.ImageUtil;
 
 public class CompanionPanel extends PluginPanel {
     private static final Color ACCENT = CompanionStyle.ACCENT;
     private final CompanionClient companion;
     private final ItemManager itemManager;
     private final SkillIconManager skillIconManager;
+    private final SpriteManager spriteManager;
+    private final Map<List<Integer>, ImageIcon> spriteIcons = new HashMap<>();
     private final Map<List<Integer>, ImageIcon> itemIcons = CacheBuilder.newBuilder()
             .maximumSize(128)
             .<List<Integer>, ImageIcon>build()
@@ -58,11 +64,16 @@ public class CompanionPanel extends PluginPanel {
     private final ActivityPanel activityPanel;
     private boolean active;
 
-    public CompanionPanel(CompanionClient companion, ItemManager itemManager, SkillIconManager skillIconManager) {
+    public CompanionPanel(
+            CompanionClient companion,
+            ItemManager itemManager,
+            SkillIconManager skillIconManager,
+            SpriteManager spriteManager) {
         super(false);
         this.companion = companion;
         this.itemManager = itemManager;
         this.skillIconManager = skillIconManager;
+        this.spriteManager = spriteManager;
         setLayout(new BorderLayout(0, 6));
         setBorder(BorderFactory.createEmptyBorder(6, 6, 6, 6));
         setBackground(ColorScheme.DARK_GRAY_COLOR);
@@ -71,7 +82,7 @@ public class CompanionPanel extends PluginPanel {
                 "FlatLaf.style", "underlineColor: #e5ab4d; hoverColor: #2d2d2d; contentAreaColor: #373737");
         add(status, BorderLayout.NORTH);
 
-        activityPanel = new ActivityPanel(companion, skillIconManager, this::itemIcon);
+        activityPanel = new ActivityPanel(companion, skillIconManager, this::itemIcon, this::spriteIcon);
         itemsPanel = new ItemsPanel(companion, this::itemIcon);
         tabs.addTab("Members", scroll(members));
         tabs.addTab("Activity", activityPanel);
@@ -124,7 +135,7 @@ public class CompanionPanel extends PluginPanel {
         for (JsonObject member : group) {
             int identifier = member.get("id").getAsInt();
             MemberPanel panel = memberPanels.computeIfAbsent(
-                    identifier, ignored -> new MemberPanel(this::itemIcon, skillIconManager));
+                    identifier, ignored -> new MemberPanel(this::itemIcon, skillIconManager, this::spriteIcon));
             panel.update(member, data);
             if (rebuild) {
                 members.add(panel);
@@ -148,6 +159,31 @@ public class CompanionPanel extends PluginPanel {
             }
             image.onLoaded(this::repaint);
             return new ImageIcon(image);
+        });
+    }
+
+    private ImageIcon spriteIcon(int identifier, int height) {
+        return spriteIcons.computeIfAbsent(List.of(identifier, height), key -> {
+            int size = Math.max(1, height);
+            ImageIcon icon = new ImageIcon(new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB));
+            spriteManager.getSpriteAsync(
+                    identifier,
+                    0,
+                    image -> SwingUtilities.invokeLater(() -> {
+                        icon.setImage(
+                                height == 0
+                                        ? image
+                                        : ImageUtil.resizeImage(
+                                                image,
+                                                Math.max(
+                                                        1,
+                                                        Math.round(
+                                                                (float) height * image.getWidth() / image.getHeight())),
+                                                height));
+                        revalidate();
+                        repaint();
+                    }));
+            return icon;
         });
     }
 

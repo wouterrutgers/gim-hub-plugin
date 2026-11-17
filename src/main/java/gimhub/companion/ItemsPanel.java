@@ -46,6 +46,7 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.util.ImageUtil;
+import net.runelite.client.util.QuantityFormatter;
 
 public class ItemsPanel extends JPanel {
     private static final Color ACCENT = CompanionStyle.ACCENT;
@@ -74,7 +75,7 @@ public class ItemsPanel extends JPanel {
             StockItem item = getModel().getElementAt(index);
             return starBounds(bounds).contains(event.getPoint())
                     ? pinTooltip(item)
-                    : item.getName() + " (" + number(item.total()) + " total)";
+                    : item.getName() + " (" + QuantityFormatter.formatNumber(item.total()) + " total)";
         }
     };
     private final JScrollPane scroller = new JScrollPane(grid);
@@ -292,12 +293,11 @@ public class ItemsPanel extends JPanel {
         }
         player.setToolTipText(player.getSelectedItem().toString());
         storage.setToolTipText(storage.getSelectedItem().toString());
-        List<StockItem> results = data.hasMetadata()
-                ? data.items((String) player.getSelectedItem(), (String) storage.getSelectedItem(), search.getText())
-                : new ArrayList<>();
-        count.setText(number(results.size()) + (results.size() == 1 ? " item" : " items"));
+        List<StockItem> results =
+                data.items((String) player.getSelectedItem(), (String) storage.getSelectedItem(), search.getText());
+        count.setText(QuantityFormatter.formatNumber(results.size()) + (results.size() == 1 ? " item" : " items"));
         empty.setText("No matching items.");
-        empty.setVisible(data.hasMetadata() && results.isEmpty());
+        empty.setVisible(results.isEmpty() && client.getStatus().isEmpty());
         if (!displayed.equals(results) || resetScroll) {
             Point position =
                     resetScroll ? new Point(0, 0) : scroller.getViewport().getViewPosition();
@@ -374,7 +374,7 @@ public class ItemsPanel extends JPanel {
             return;
         }
         itemName.setText(selected.getName());
-        itemTotal.setText(number(selected.total()) + " total");
+        itemTotal.setText(QuantityFormatter.formatNumber(selected.total()) + " total");
         Map<String, Map<String, Long>> breakdown = new LinkedHashMap<>();
         for (Holding holding : selected.getHoldings()) {
             breakdown
@@ -394,12 +394,12 @@ public class ItemsPanel extends JPanel {
                         15)));
             }
             row.add(name, BorderLayout.CENTER);
-            JLabel quantity = label(number(
+            JLabel quantity = label(QuantityFormatter.formatNumber(
                     containers.values().stream().mapToLong(Long::longValue).sum()));
             quantity.setForeground(MUTED);
             row.add(quantity, BorderLayout.EAST);
             JTextArea locations = text(containers.entrySet().stream()
-                    .map(entry -> entry.getKey() + ": " + number(entry.getValue()))
+                    .map(entry -> entry.getKey() + ": " + QuantityFormatter.formatNumber(entry.getValue()))
                     .collect(Collectors.joining(", ")));
             locations.setForeground(MUTED);
             row.add(locations, BorderLayout.SOUTH);
@@ -448,7 +448,7 @@ public class ItemsPanel extends JPanel {
                     .collect(Collectors.toList());
             getAccessibleContext().setAccessibleName(item.getName());
             getAccessibleContext()
-                    .setAccessibleDescription(number(item.total()) + " total. "
+                    .setAccessibleDescription(QuantityFormatter.formatNumber(item.total()) + " total. "
                             + (pinned ? "Pinned. " : "Unpinned. ")
                             + (pending ? "Syncing. " : "")
                             + "Owned by " + String.join(", ", itemOwners));
@@ -473,7 +473,7 @@ public class ItemsPanel extends JPanel {
                     item.total() >= 10_000_000
                             ? new Color(80, 198, 109)
                             : item.total() >= 100_000 ? Color.WHITE : Color.YELLOW);
-            graphics.drawString(shortQuantity(item.total()), 6, 16);
+            graphics.drawString(QuantityFormatter.quantityToStackSize(item.total()), 6, 16);
             graphics.setColor(
                     pending
                             ? MUTED
@@ -548,17 +548,5 @@ public class ItemsPanel extends JPanel {
         area.setForeground(CompanionStyle.TEXT);
         area.setOpaque(false);
         return area;
-    }
-
-    private static String shortQuantity(long quantity) {
-        return quantity >= 1_000_000_000
-                ? quantity / 1_000_000_000 + "B"
-                : quantity >= 1_000_000
-                        ? quantity / 1_000_000 + "M"
-                        : quantity >= 1_000 ? quantity / 1_000 + "K" : Long.toString(quantity);
-    }
-
-    private static String number(long value) {
-        return String.format("%,d", value);
     }
 }

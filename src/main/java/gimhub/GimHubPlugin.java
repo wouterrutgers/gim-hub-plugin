@@ -16,6 +16,7 @@ import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.game.SkillIconManager;
+import net.runelite.client.game.SpriteManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.loottracker.LootReceived;
@@ -45,6 +46,9 @@ public class GimHubPlugin extends Plugin {
     private SkillIconManager skillIconManager;
 
     @Inject
+    private SpriteManager spriteManager;
+
+    @Inject
     private CollectionLogItemResolver collectionLogItemResolver;
 
     @Inject
@@ -66,7 +70,7 @@ public class GimHubPlugin extends Plugin {
             if (generation != companionGeneration) {
                 return;
             }
-            CompanionPanel panel = new CompanionPanel(companion, itemManager, skillIconManager);
+            CompanionPanel panel = new CompanionPanel(companion, itemManager, skillIconManager, spriteManager);
             companion.start(panel::update);
             companionNavigation = NavigationButton.builder()
                     .tooltip("GIM Hub")

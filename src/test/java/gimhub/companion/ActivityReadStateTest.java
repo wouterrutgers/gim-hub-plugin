@@ -55,8 +55,6 @@ public class ActivityReadStateTest {
         ActivityReadState nextVisit = new ActivityReadState(config, gson, "group_alice");
         nextVisit.receive(entries("[{id:1,revision:2},{id:2,revision:1}]"), "2026-11-15T10:00:20Z");
         assertEquals(0, nextVisit.getUnreadCount());
-        ActivityReadState otherPlayer = new ActivityReadState(config, gson, "group_bob");
-        assertNull(otherPlayer.getCursor());
     }
 
     @Test

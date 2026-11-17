@@ -17,10 +17,12 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.IntFunction;
+import java.util.function.IntToLongFunction;
 import java.util.stream.Collectors;
 import lombok.Value;
 import net.runelite.api.Experience;
-import net.runelite.api.gameval.ItemID;
+import net.runelite.client.util.QuantityFormatter;
 
 public class CompanionData {
     public static final List<String> SKILLS = Arrays.asList(
@@ -110,8 +112,8 @@ public class CompanionData {
     private final Map<Integer, JsonObject> members = new LinkedHashMap<>();
     private final Map<Long, JsonObject> activities = new LinkedHashMap<>();
     private JsonObject metadata = new JsonObject();
-    private JsonObject gePrices = new JsonObject();
-    private final Map<Integer, Long> priceCache = new HashMap<>();
+    private Map<Integer, Long> itemPrices = new HashMap<>();
+    private final Map<Integer, String> itemNames = new HashMap<>();
     private Set<Integer> pinnedItems = new HashSet<>();
 
     public synchronized void mergeMembers(JsonArray updates) {
@@ -204,16 +206,24 @@ public class CompanionData {
 
     public synchronized void setMetadata(JsonObject metadata) {
         this.metadata = metadata;
-        priceCache.clear();
     }
 
-    public synchronized void setGePrices(JsonObject prices) {
-        gePrices = prices;
-        priceCache.clear();
+    public synchronized void updateItemData(IntToLongFunction priceLookup, IntFunction<String> nameLookup) {
+        Map<Integer, Long> prices = new HashMap<>();
+        Set<Integer> heldItems = holdings("All players", "All storage").keySet();
+        updateItemNames(heldItems, nameLookup);
+        heldItems.forEach(identifier -> prices.put(identifier, priceLookup.applyAsLong(identifier)));
+        itemPrices = prices;
+    }
+
+    synchronized void updateItemNames(Set<Integer> identifiers, IntFunction<String> nameLookup) {
+        for (int identifier : identifiers) {
+            itemNames.computeIfAbsent(identifier, nameLookup::apply);
+        }
     }
 
     public synchronized boolean hasMetadata() {
-        return metadata.has("items");
+        return metadata.has("quests");
     }
 
     public synchronized void setPreferences(JsonObject response) {
@@ -235,15 +245,24 @@ public class CompanionData {
     }
 
     public synchronized String itemName(int identifier) {
-        JsonObject items = metadata.getAsJsonObject("items");
-        return items != null && items.has(Integer.toString(identifier))
-                ? items.getAsJsonObject(Integer.toString(identifier))
-                        .get("name")
-                        .getAsString()
-                : "Item " + identifier;
+        return itemNames.getOrDefault(identifier, "Item " + identifier);
     }
 
     public synchronized List<StockItem> items(String memberFilter, String containerFilter, String query) {
+        String search = query.trim().toLowerCase(Locale.ROOT);
+        return holdings(memberFilter, containerFilter).entrySet().stream()
+                .map(entry -> new StockItem(entry.getKey(), itemName(entry.getKey()), entry.getValue()))
+                .filter(item -> Arrays.stream(search.split("\\s+"))
+                        .allMatch(word -> item.name.toLowerCase(Locale.ROOT).contains(word)))
+                .sorted(Comparator.comparing((StockItem item) -> !pinnedItems.contains(item.identifier))
+                        .thenComparing(Comparator.comparingDouble((StockItem item) ->
+                                        itemPrices.getOrDefault(item.identifier, 0L) * (double) item.total())
+                                .reversed())
+                        .thenComparing(StockItem::getName, String.CASE_INSENSITIVE_ORDER))
+                .collect(Collectors.toList());
+    }
+
+    private Map<Integer, List<Holding>> holdings(String memberFilter, String containerFilter) {
         Map<Integer, List<Holding>> holdings = new LinkedHashMap<>();
         for (JsonObject member : members.values()) {
             String owner = displayName(member);
@@ -274,48 +293,7 @@ public class CompanionData {
                 }
             }
         }
-        String search = query.trim().toLowerCase(Locale.ROOT);
-        return holdings.entrySet().stream()
-                .map(entry -> new StockItem(entry.getKey(), itemName(entry.getKey()), entry.getValue()))
-                .filter(item -> Arrays.stream(search.split("\\s+"))
-                        .allMatch(word -> item.name.toLowerCase(Locale.ROOT).contains(word)))
-                .sorted(Comparator.comparing((StockItem item) -> !pinnedItems.contains(item.identifier))
-                        .thenComparing(Comparator.comparingDouble(
-                                        (StockItem item) -> gePrice(item.identifier) * (double) item.total())
-                                .reversed())
-                        .thenComparing(StockItem::getName, String.CASE_INSENSITIVE_ORDER))
-                .collect(Collectors.toList());
-    }
-
-    private long gePrice(int identifier) {
-        Long cached = priceCache.get(identifier);
-        if (cached != null) {
-            return cached;
-        }
-        long price = 0;
-        if (identifier == ItemID.COINS) {
-            price = 1;
-        } else if (identifier == ItemID.PLATINUM) {
-            price = 1000;
-        } else {
-            JsonObject item = metadata.getAsJsonObject("items").getAsJsonObject(Integer.toString(identifier));
-            if (item != null) {
-                JsonElement mapping = item.get("mapping");
-                if (mapping != null
-                        && !mapping.isJsonNull()
-                        && mapping.getAsJsonArray().size() > 0) {
-                    for (JsonElement element : mapping.getAsJsonArray()) {
-                        JsonObject component = element.getAsJsonObject();
-                        price += gePrice(component.get("id").getAsInt())
-                                * component.get("quantity").getAsLong();
-                    }
-                } else if (gePrices.has(Integer.toString(identifier))) {
-                    price = gePrices.get(Integer.toString(identifier)).getAsLong();
-                }
-            }
-        }
-        priceCache.put(identifier, price);
-        return price;
+        return holdings;
     }
 
     private static void addHoldings(
@@ -446,7 +424,7 @@ public class CompanionData {
                 long total = data.getAsJsonObject("skills").entrySet().stream()
                         .mapToLong(skill -> skill.getValue().getAsLong())
                         .sum();
-                return "Gained " + String.format("%,d", total) + " XP";
+                return "Gained " + QuantityFormatter.formatNumber(total) + " XP";
             case "level":
                 return "Reached level " + data.get("after").getAsInt() + " "
                         + data.get("skill").getAsString();
@@ -469,7 +447,7 @@ public class CompanionData {
                                         && data.get("source").getAsString().equals("Collection log")
                                 ? "Unlocked "
                                 : "Received ")
-                        + (quantity > 1 ? String.format("%,d", quantity) + " x " : "")
+                        + (quantity > 1 ? QuantityFormatter.formatNumber(quantity) + " x " : "")
                         + itemName(data.get("item_id").getAsInt());
         }
     }
@@ -480,7 +458,8 @@ public class CompanionData {
             case "xp":
                 return data.getAsJsonObject("skills").entrySet().stream()
                         .map(skill -> skill.getKey() + ": +"
-                                + String.format("%,d", skill.getValue().getAsLong()) + " XP")
+                                + QuantityFormatter.formatNumber(
+                                        skill.getValue().getAsLong()) + " XP")
                         .collect(Collectors.joining("\n"));
             case "boss":
                 return "Total kill count: " + data.get("total_count").getAsLong();
@@ -504,7 +483,8 @@ public class CompanionData {
                 return "From " + data.get("source").getAsString()
                         + (data.has("value")
                                 ? "\nValue: "
-                                        + String.format("%,d", data.get("value").getAsLong()) + " GP"
+                                        + QuantityFormatter.formatNumber(
+                                                data.get("value").getAsLong()) + " GP"
                                 : "");
             default:
                 return activityText(entry);

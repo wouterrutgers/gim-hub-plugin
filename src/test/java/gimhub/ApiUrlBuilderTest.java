@@ -29,7 +29,7 @@ public class ApiUrlBuilderTest {
         when(configuration.groupName()).thenReturn("  iron friends  ");
 
         assertEquals(
-                "https://gim-hub.test/api/group/iron friends/update-group-member",
+                "https://gim-hub.test/api/group/iron%20friends/update-group-member",
                 apiUrlBuilder.getUpdateGroupMemberUrl());
     }
 
@@ -38,7 +38,7 @@ public class ApiUrlBuilderTest {
         when(configuration.groupName()).thenReturn("iron-friends");
 
         assertEquals(
-                "https://gim-hub.test/api/group/iron-friends/am-i-in-group?member_name=Player One",
+                "https://gim-hub.test/api/group/iron-friends/am-i-in-group?member_name=Player%20One",
                 apiUrlBuilder.getMembershipCheckUrl("Player One"));
     }
 

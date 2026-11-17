@@ -2,6 +2,7 @@ package gimhub.companion;
 
 import com.google.common.hash.Hashing;
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import gimhub.ApiUrlBuilder;
@@ -22,14 +23,16 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 import javax.swing.SwingUtilities;
 import lombok.extern.slf4j.Slf4j;
+import net.runelite.api.Client;
+import net.runelite.api.GameState;
+import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
+import net.runelite.client.game.ItemManager;
 import okhttp3.HttpUrl;
 
 @Slf4j
 @Singleton
 public class CompanionClient {
-    private static final long GE_PRICE_CACHE_MILLIS = 4 * 60 * 60 * 1000L;
-
     @Inject
     private GimHubConfig config;
 
@@ -47,6 +50,15 @@ public class CompanionClient {
 
     @Inject
     private Gson gson;
+
+    @Inject
+    private Client client;
+
+    @Inject
+    private ClientThread clientThread;
+
+    @Inject
+    private ItemManager itemManager;
 
     private final Set<CompletableFuture<?>> requests = new HashSet<>();
     private final CompanionData emptyData = new CompanionData();
@@ -72,7 +84,6 @@ public class CompanionClient {
         private boolean activityLoaded;
         private boolean preferencesLoaded;
         private long preferencesRevision;
-        private long gePriceVersion = -1;
 
         private Session(String context, String player, ActivityReadState readState) {
             this.context = context;
@@ -148,36 +159,29 @@ public class CompanionClient {
         List<CompletableFuture<?>> updates = new ArrayList<>();
         try {
             if (!current.data.hasMetadata()) {
-                HttpUrl metadataUrl = HttpUrl.parse(http.getBaseUrl())
+                HttpUrl metadataUrl = HttpUrl.get(http.getBaseUrl())
                         .newBuilder()
                         .addPathSegments("api/game-data")
                         .build();
-                updates.add(get(current, metadataUrl, result -> current.data.setMetadata(result.getAsJsonObject())));
-            }
-            long gePriceVersion = System.currentTimeMillis() / GE_PRICE_CACHE_MILLIS;
-            if (current.gePriceVersion != gePriceVersion) {
-                HttpUrl priceUrl = HttpUrl.parse(http.getBaseUrl())
-                        .newBuilder()
-                        .addPathSegments("api/ge-prices.json")
-                        .addQueryParameter("v", Long.toString(gePriceVersion))
-                        .build();
-                updates.add(get(current, priceUrl, result -> {
-                    current.data.setGePrices(result.getAsJsonObject());
-                    current.gePriceVersion = gePriceVersion;
-                }));
+                updates.add(request(
+                        current,
+                        http.getAsync(metadataUrl.toString(), null),
+                        result -> current.data.setMetadata(result.getAsJsonObject())));
             }
             HttpUrl groupUrl = urls.getGroupUrl("get-group-data")
                     .newBuilder()
                     .addQueryParameter("from_time", current.data.groupCursor())
                     .build();
             updates.add(get(current, groupUrl, result -> current.data.mergeMembers(result.getAsJsonArray()))
-                    .thenCompose(ignored -> loadPreferences(current)));
+                    .thenCompose(ignored -> CompletableFuture.allOf(
+                            loadPreferences(current),
+                            onClientThread(
+                                    current,
+                                    () -> current.data.updateItemData(itemManager::getItemPrice, this::itemName)))));
 
             String cursor = current.readState.getCursor();
             if (!current.activityLoaded) {
-                updates.add(get(current, urls.getGroupUrl("activity"), result -> {
-                    JsonObject page = result.getAsJsonObject();
-                    current.data.mergeActivity(page.getAsJsonArray("entries"));
+                updates.add(getActivity(current, urls.getGroupUrl("activity"), page -> {
                     current.olderCursor = nullableString(page, "older_cursor");
                     if (cursor == null) {
                         current.readState.receive(
@@ -188,19 +192,15 @@ public class CompanionClient {
                 }));
             }
             if (cursor != null) {
-                updates.add(get(
+                updates.add(getActivity(
                         current,
                         urls.getGroupUrl("activity")
                                 .newBuilder()
                                 .addQueryParameter("from_time", cursor)
                                 .build(),
-                        result -> {
-                            JsonObject page = result.getAsJsonObject();
-                            current.data.mergeActivity(page.getAsJsonArray("entries"));
-                            current.readState.receive(
-                                    page.getAsJsonArray("entries"),
-                                    page.get("from_time").getAsString());
-                        }));
+                        page -> current.readState.receive(
+                                page.getAsJsonArray("entries"),
+                                page.get("from_time").getAsString())));
             }
 
             CompletableFuture.allOf(updates.toArray(new CompletableFuture<?>[0]))
@@ -217,6 +217,54 @@ public class CompanionClient {
             current.refreshing = false;
             report(error);
         }
+    }
+
+    private CompletableFuture<Void> getActivity(Session current, HttpUrl url, Consumer<JsonObject> acceptPage) {
+        Set<Integer> dropItems = new HashSet<>();
+        return get(current, url, result -> {
+                    JsonObject page = result.getAsJsonObject();
+                    JsonArray entries = page.getAsJsonArray("entries");
+                    current.data.mergeActivity(entries);
+                    for (JsonElement element : entries) {
+                        JsonObject entry = element.getAsJsonObject();
+                        String type = entry.get("type").getAsString();
+                        if (type.equals("loot") || type.equals("collection")) {
+                            dropItems.add(
+                                    entry.getAsJsonObject("data").get("item_id").getAsInt());
+                        }
+                    }
+                    acceptPage.accept(page);
+                })
+                .thenCompose(ignored -> dropItems.isEmpty()
+                        ? CompletableFuture.completedFuture(null)
+                        : onClientThread(current, () -> current.data.updateItemNames(dropItems, this::itemName)));
+    }
+
+    private String itemName(int identifier) {
+        return itemManager.getItemComposition(identifier).getMembersName();
+    }
+
+    private CompletableFuture<Void> onClientThread(Session current, Runnable action) {
+        CompletableFuture<Void> updated = new CompletableFuture<>();
+        clientThread.invokeLater(() -> {
+            synchronized (CompanionClient.this) {
+                if (!isCurrent(current)) {
+                    updated.complete(null);
+                    return true;
+                }
+                if (client.getGameState().ordinal() < GameState.LOGIN_SCREEN.ordinal()) {
+                    return false;
+                }
+                try {
+                    action.run();
+                    updated.complete(null);
+                } catch (RuntimeException error) {
+                    updated.completeExceptionally(error);
+                }
+                return true;
+            }
+        });
+        return updated;
     }
 
     private synchronized CompletableFuture<Void> loadPreferences(Session current) {
@@ -243,17 +291,13 @@ public class CompanionClient {
         }
         current.loadingOlder = true;
         notifyPanel();
-        get(
+        getActivity(
                         current,
                         urls.getGroupUrl("activity")
                                 .newBuilder()
                                 .addQueryParameter("cursor", current.olderCursor)
                                 .build(),
-                        result -> {
-                            JsonObject page = result.getAsJsonObject();
-                            current.data.mergeActivity(page.getAsJsonArray("entries"));
-                            current.olderCursor = nullableString(page, "older_cursor");
-                        })
+                        page -> current.olderCursor = nullableString(page, "older_cursor"))
                 .whenComplete((ignored, error) -> {
                     synchronized (CompanionClient.this) {
                         if (isCurrent(current)) {
