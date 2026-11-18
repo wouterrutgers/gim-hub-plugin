@@ -28,7 +28,7 @@ import net.runelite.client.util.ImageUtil;
 @Slf4j
 @PluginDescriptor(name = "GIM hub")
 public class GimHubPlugin extends Plugin {
-    static final String VERSION = "1.15.0";
+    static final String VERSION = "1.16.0";
 
     @Inject
     private Client client;
