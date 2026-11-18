@@ -57,6 +57,9 @@ public class GimHubPlugin extends Plugin {
     @Inject
     private ClientToolbar clientToolbar;
 
+    @Inject
+    private GimHubConfig config;
+
     private NavigationButton companionNavigation;
     private volatile int companionGeneration;
 
@@ -78,7 +81,7 @@ public class GimHubPlugin extends Plugin {
                     .panel(panel)
                     .priority(5)
                     .build();
-            clientToolbar.addNavigation(companionNavigation);
+            updateCompanionNavigation();
         });
         log.info("GIM hub started!");
         clientThread.invoke(() -> {
@@ -113,11 +116,26 @@ public class GimHubPlugin extends Plugin {
 
     @Subscribe
     public void onConfigChanged(ConfigChanged event) {
-        if (event.getGroup().equals("GimHub")
-                && (event.getKey().equals("groupName")
-                        || event.getKey().equals("groupToken")
-                        || event.getKey().equals("baseUrlOverride"))) {
+        if (!event.getGroup().equals("GimHub")) {
+            return;
+        }
+        if (event.getKey().equals("hideSidebar")) {
+            SwingUtilities.invokeLater(this::updateCompanionNavigation);
+        } else if (event.getKey().equals("groupName")
+                || event.getKey().equals("groupToken")
+                || event.getKey().equals("baseUrlOverride")) {
             companion.refresh();
+        }
+    }
+
+    private void updateCompanionNavigation() {
+        if (companionNavigation == null) {
+            return;
+        }
+        if (config.hideSidebar()) {
+            clientToolbar.removeNavigation(companionNavigation);
+        } else {
+            clientToolbar.addNavigation(companionNavigation);
         }
     }
 
