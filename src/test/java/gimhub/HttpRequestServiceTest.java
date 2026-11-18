@@ -46,11 +46,17 @@ public class HttpRequestServiceTest {
     }
 
     @Test
-    public void internalGetIncludesAuthorizationAndAcceptHeaders() throws Exception {
+    public void normalizedSelfHostedUrlIncludesAuthorizationAndAcceptHeaders() throws Exception {
+        when(configuration.baseUrlOverride())
+                .thenReturn(server.url("/gim-hub").toString().replace("http:", "HTTP:"));
+        when(configuration.groupName()).thenReturn("iron friends");
+        ApiUrlBuilder urls = new ApiUrlBuilder();
+        setField(urls, "config", configuration);
+        setField(urls, "httpRequestService", httpRequestService);
         server.enqueue(new MockResponse().setResponseCode(200).setBody("ok"));
 
         HttpRequestService.HttpResponse response =
-                httpRequestService.get(server.url("/membership").toString(), "group-token");
+                httpRequestService.get(urls.getMembershipCheckUrl("Alice"), "group-token");
         RecordedRequest request = server.takeRequest();
 
         assertTrue(response.isSuccessful());

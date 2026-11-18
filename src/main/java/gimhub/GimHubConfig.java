@@ -21,6 +21,14 @@ public interface GimHubConfig extends Config {
     String CONNECTION_SECTION = "ConnectionSection";
 
     @ConfigItem(
+            keyName = "hideSidebar",
+            name = "Hide sidebar",
+            description = "Hide the GIM Hub panel from the RuneLite sidebar.")
+    default boolean hideSidebar() {
+        return false;
+    }
+
+    @ConfigItem(
             keyName = "groupName",
             name = "Group name (on the website)",
             description = "This is the group name you provided on the website when creating your group.",
