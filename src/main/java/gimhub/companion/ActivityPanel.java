@@ -66,7 +66,6 @@ public class ActivityPanel extends JPanel {
     private final JComboBox<String> filter = new JComboBox<>(FILTERS.toArray(new String[0]));
     private final JCheckBox newOnly = new JCheckBox("New only");
     private final JCheckBox filterDrops = new JCheckBox("Filter drops", true);
-    private final JLabel sinceLastVisit = label("");
     private final JList<Row> feed = new JList<Row>() {
         @Override
         public boolean getScrollableTracksViewportWidth() {
@@ -113,13 +112,9 @@ public class ActivityPanel extends JPanel {
         options.setAlignmentX(LEFT_ALIGNMENT);
         options.add(newOnly, BorderLayout.WEST);
         options.add(filterDrops, BorderLayout.EAST);
-        sinceLastVisit.setAlignmentX(LEFT_ALIGNMENT);
-        sinceLastVisit.setForeground(MUTED);
         filters.add(filter);
         filters.add(javax.swing.Box.createVerticalStrut(CompanionStyle.SMALL_GAP));
         filters.add(options);
-        filters.add(javax.swing.Box.createVerticalStrut(CompanionStyle.SMALL_GAP));
-        filters.add(sinceLastVisit);
         add(filters, BorderLayout.NORTH);
 
         feed.setCellRenderer(new TimelineRenderer());
@@ -190,8 +185,6 @@ public class ActivityPanel extends JPanel {
             client.activityViewed();
         }
         highlights = client.getActivityHighlights();
-        sinceLastVisit.setText(highlights.size() + " new since last viewed");
-        sinceLastVisit.setVisible(!highlights.isEmpty());
         String selectedType = TYPES.get(filter.getSelectedIndex());
         List<JsonObject> entries = data.hasMetadata()
                 ? data.activities().stream()

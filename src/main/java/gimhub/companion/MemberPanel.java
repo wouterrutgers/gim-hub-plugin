@@ -11,6 +11,7 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
+import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.GridLayout;
 import java.awt.Point;
@@ -871,22 +872,41 @@ public class MemberPanel extends JPanel {
             super.paintComponent(graphics);
             if (valueText != null) {
                 int x = 6;
-                int y = (getHeight()
-                                + graphics.getFontMetrics().getAscent()
-                                - graphics.getFontMetrics().getDescent())
-                        / 2;
+                FontMetrics metrics = graphics.getFontMetrics();
+                int y = (getHeight() + metrics.getAscent() - metrics.getDescent()) / 2;
                 graphics.setColor(Color.WHITE);
                 graphics.drawString(valueText, x, y);
                 if (contextText != null) {
-                    int width = getWidth() * 42 / 100;
-                    Graphics context = graphics.create((getWidth() - width) / 2, 1, width, getHeight() - 2);
+                    int padding = CompanionStyle.SMALL_GAP;
+                    int minimumStart = x + metrics.stringWidth(valueText) + padding;
+                    int preferredWidth =
+                            Math.max(getWidth() * 42 / 100, metrics.stringWidth(contextText) + 2 * padding);
+                    int width = Math.min(preferredWidth, getWidth() - minimumStart - x);
+                    if (width <= 2 * padding) {
+                        return;
+                    }
+                    int start = Math.max(minimumStart, (getWidth() - width) / 2);
+                    int height = getHeight() - 2;
+                    Graphics context = graphics.create(start, 1, width, height);
                     context.setColor(new Color(0x383838));
-                    context.fillRect(0, 0, width, getHeight() - 2);
+                    context.fillRect(0, 0, width, height);
                     context.setColor(contextColor);
-                    context.fillRect(0, 0, Math.round(width * contextRatio), getHeight() - 2);
+                    context.fillRect(0, 0, Math.round(width * contextRatio), height);
+                    Rectangle textBounds = new Rectangle();
+                    String visibleName = SwingUtilities.layoutCompoundLabel(
+                            metrics,
+                            contextText,
+                            null,
+                            SwingUtilities.CENTER,
+                            SwingUtilities.CENTER,
+                            SwingUtilities.CENTER,
+                            SwingUtilities.TRAILING,
+                            new Rectangle(padding, 0, width - 2 * padding, height),
+                            new Rectangle(),
+                            textBounds,
+                            0);
                     context.setColor(Color.WHITE);
-                    context.drawString(
-                            contextText, (width - context.getFontMetrics().stringWidth(contextText)) / 2, y - 1);
+                    context.drawString(visibleName, textBounds.x, y - 1);
                     context.dispose();
                 }
             }
